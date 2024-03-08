@@ -2,6 +2,10 @@ import json, os
 import pandas as pd
 import plotly.express as px
 
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+pd.options.mode.chained_assignment = None
+
 class musicHistory_extended_file:
     df = pd.DataFrame()
     total_time = 0
@@ -88,7 +92,7 @@ class musicHistory_extended_file:
         # fig.show()
         return fig
 
-    def top_tracks(self, top=None, noStreamsGrph=True, streamTimeGrph=False, threshold_number=10, threshold_time_hrs=1, year=None):
+    def top_tracks(self, top=None, noStreamsGrph=False, streamTimeGrph=False, threshold_number=10, threshold_time_hrs=1, year=None):
         """Top tracks graph by number of streams/stream time"""
         # Group records by track name and artist, summing listening time and counting number of streams. Change miliseconds to hours
         df_top = self.df

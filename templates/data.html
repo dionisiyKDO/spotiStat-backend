@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+
+{% block head %}
+  <title>Spotistat</title>
+{% endblock %}
+
+
+{% block content %}
+  
+<div class="container">
+  <div class="row">
+    <div class="col-md-6">
+      <div class="card rounded-3" style="
+      background-color: 
+      var(--spotify-green); 
+      color: var(--spotify-black); 
+      padding: 0px; 
+      margin-top: 20px;">
+      {% for key in data.keys() %}
+      <div class="card-body">
+        <h5 class="card-title">{{ data[key][0] }}</h5>
+        <p class="card-text">{{ '%.2f' % data[key][1] }}</p>
+      </div>
+      {% endfor %}    
+      </div>
+    </div>  
+  </div>
+</div>
+
+
+{% endblock %}

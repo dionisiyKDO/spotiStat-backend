@@ -46,22 +46,22 @@ class MusicHistoryExtendedFile:
         self.end_year = df_copy['ts'].max().year
         return 
 
-    def __get_top_tracks_data(self, year=None):
+    def get_top_tracks_data(self, year=None):
         df_top = self.df[['spotify_track_uri', 'ts', 'master_metadata_track_name', 'master_metadata_album_artist_name', 'ms_played']].copy()
         df_top['ts'] = pd.to_datetime(df_top['ts'])
         if year: df_top = df_top[df_top['ts'].dt.year == year]
-        
+        print(df_top.columns)
         df_top['fullName'] = df_top['master_metadata_album_artist_name'] + ' - ' + df_top['master_metadata_track_name']
-        df_top = df_top.groupby(['spotify_track_uri', 'fullName'], as_index=False)
+        print(df_top.columns)
+        df_top = df_top.groupby(['spotify_track_uri', 'fullName', 'master_metadata_track_name', 'master_metadata_album_artist_name'], as_index=False)
         df_top = df_top.agg({'ts':'count', 'ms_played':'sum'})
         df_top = df_top.rename(columns={'ts': 'noStreams', 'ms_played': 'streamTimeMs'})
-        print(df_top.columns)
         df_top['streamTimeHr'] = df_top['streamTimeMs'] / (1000 * 60 * 60)
         return df_top
     
     def top_tracks_by_stream_time(self, top=None, threshold_time_hrs=1, year=None):
         """Top tracks by streaming time"""
-        df_top = self.__get_top_tracks_data(year=year)
+        df_top = self.get_top_tracks_data(year=year)
         df_top = df_top[df_top['streamTimeHr'] > threshold_time_hrs] if threshold_time_hrs else df_top
         df_top = df_top.sort_values(by=['streamTimeHr'], ascending=False)
         title = f"Top tracks by streaming time: {year}" if year else f"Top tracks by streaming time: {self.start_year}/{self.end_year}"
@@ -69,7 +69,7 @@ class MusicHistoryExtendedFile:
 
     def top_tracks_by_streams(self, top=None, threshold_number=10, year=None):
         """Top tracks by number of streams"""
-        df_top = self.__get_top_tracks_data(year=year)
+        df_top = self.get_top_tracks_data(year=year)
         df_top = df_top[df_top['noStreams'] > threshold_number] if threshold_number else df_top
         df_top = df_top.sort_values(by=['noStreams'], ascending=False)
         title = f"Top tracks by number of streams: {year}" if year else f"Top tracks by number of streams: {self.start_year}/{self.end_year}"

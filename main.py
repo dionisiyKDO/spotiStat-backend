@@ -1,4 +1,4 @@
-from musicHistory_extended import *
+from MusicHistoryExtendedFile import *
 from musicHistory import *
 from settings import *
 
@@ -27,6 +27,36 @@ def data():
     data['total_days'] =    [ 'Total days', total_time / (1000 * 60 * 60 * 24)]
 
     return render_template('data.html', data=data)
+
+@app.route('/top_tracks_list')
+def top_tracks_list():
+    column = request.args.get('column')
+    tracks = history.get_top_tracks_data()
+
+    # Check if the column is valid
+    if column in tracks.columns:
+        # Sort the DataFrame based on the selected column
+        tracks_sorted = tracks.sort_values(by=column, ascending=False)
+        return render_template('top_tracks_list.html', tracks=tracks_sorted.head(50))
+    else:
+        tracks_sorted = tracks.sort_values(by=['streamTimeHr'], ascending=False)
+        return render_template('top_tracks_list.html', tracks=tracks_sorted.head(50))
+
+@app.route('/top_tracks_list/sort')
+def sort():
+    column = request.args.get('column')
+
+    tracks = history.get_top_tracks_data()
+    tracks = tracks.sort_values(by=['streamTimeHr'], ascending=False)
+    
+    # Check if the column is valid
+    if column in tracks.columns:
+        # Sort the DataFrame based on the selected column
+        tracks_sorted = tracks.sort_values(by=column, ascending=False)
+        return render_template('index.html', tracks=tracks_sorted)
+    else:
+        # If column is not valid, render the template with unsorted DataFrame
+        return render_template('index.html', tracks=tracks)
 
 # region
 @app.route('/daily_listening_time')

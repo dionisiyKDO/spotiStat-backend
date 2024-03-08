@@ -6,16 +6,19 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None
 
-class musicHistory_extended_file:
-    df = pd.DataFrame()
-    total_time = 0
-    start_year = 0
-    end_year = 0
+class MusicHistoryExtendedFile:
+    def __init__(self, path='./MyData_all/'):
+        self.df = pd.DataFrame()
+        self.total_time = 0
+        self.start_year = 0
+        self.end_year = 0
+        self.__load_data(path)
+        self.__set_total_time()
+        self.__set_dates()
 
-    def __init__(self, path: str='./MyData_all/'):
+    def __load_data(self, path):
         substring = 'Streaming'
         file_paths = []
-        dfs = []
 
         # get paths to files with our data
         for root, dirs, files in os.walk(path):
@@ -24,17 +27,10 @@ class musicHistory_extended_file:
                     file_path = os.path.join(root, file)
                     file_paths.append(file_path)
 
-        # read this files and unite them to one DataFrame
-        for path in file_paths:
-            with open(path, encoding="utf8") as f:
-                json_data = pd.json_normalize(json.loads( f.read() ))
-                dfs.append(json_data)
+        # read these files and unite them into one DataFrame
+        dfs = [pd.json_normalize(json.loads(open(file_path, encoding="utf8").read())) for file_path in file_paths]
         self.df = pd.concat(dfs).reset_index()
-        
-        self.__set_dates()
-        self.__set_total_time()
-        return
-    
+
     def __set_total_time(self):
         """Calculate total streaming time, save it to class variable"""
         if self.total_time == 0:
@@ -43,27 +39,57 @@ class musicHistory_extended_file:
         return
 
     def __set_dates(self):
-        """Get start_date and end_date, save it to class variables"""
-        # drop every column, except 'ts'
-        df_copy = self.df.drop(['username', 'platform', 'ms_played', 'conn_country', 
-            'ip_addr_decrypted', 'user_agent_decrypted', 'master_metadata_track_name', 
-            'master_metadata_album_artist_name', 'master_metadata_album_album_name', 
-            'spotify_track_uri', 'episode_name', 'episode_show_name', 'spotify_episode_uri', 
-            'reason_start', 'reason_end', 'shuffle', 'skipped', 'offline', 'offline_timestamp', 
-            'incognito_mode'], axis=1)
-    
-        # sort by timestamp(ts), get start_year end_year, save it
-        df_copy.sort_values(by=['ts'])
-        df_copy['ts'] = pd.to_datetime(df_copy['ts'])
-        df_copy['ts'] = pd.to_datetime(df_copy['ts'].dt.strftime("%Y-%m-%d"))
-        self.start_year = df_copy.head(1)['ts'].dt.year.tolist()[0]
-        self.end_year = df_copy.tail(1)['ts'].dt.year.tolist()[0]
+        """Get start_year and end_year, save it to class variables"""
+        df_copy = self.df[['ts']].copy()
+        df_copy['ts'] = pd.to_datetime(df_copy['ts']).dt.date
+        self.start_year = df_copy['ts'].min().year
+        self.end_year = df_copy['ts'].max().year
         return 
 
-    def daily_listening_time(self, year=None, groupByMonth=None):
-        """Daily listening time graph"""
+    def __get_top_tracks_data(self, year=None):
+        df_top = self.df[['spotify_track_uri', 'ts', 'master_metadata_track_name', 'master_metadata_album_artist_name', 'ms_played']].copy()
+        df_top['ts'] = pd.to_datetime(df_top['ts'])
+        if year: df_top = df_top[df_top['ts'].dt.year == year]
+        
+        df_top['fullName'] = df_top['master_metadata_album_artist_name'] + ' - ' + df_top['master_metadata_track_name']
+        df_top = df_top.groupby(['spotify_track_uri', 'fullName'], as_index=False)
+        df_top = df_top.agg({'ts':'count', 'ms_played':'sum'})
+        df_top = df_top.rename(columns={'ts': 'noStreams', 'ms_played': 'streamTimeMs'})
+        print(df_top.columns)
+        df_top['streamTimeHr'] = df_top['streamTimeMs'] / (1000 * 60 * 60)
+        return df_top
+    
+    def top_tracks_by_stream_time(self, top=None, threshold_time_hrs=1, year=None):
+        """Top tracks by streaming time"""
+        df_top = self.__get_top_tracks_data(year=year)
+        df_top = df_top[df_top['streamTimeHr'] > threshold_time_hrs] if threshold_time_hrs else df_top
+        df_top = df_top.sort_values(by=['streamTimeHr'], ascending=False)
+        title = f"Top tracks by streaming time: {year}" if year else f"Top tracks by streaming time: {self.start_year}/{self.end_year}"
+        return self.__generate_bar_plot(df_top, x='fullName', y='streamTimeHr', title=title, xaxis_title='Track name', yaxis_title='Streaming time [hours]')
+
+    def top_tracks_by_streams(self, top=None, threshold_number=10, year=None):
+        """Top tracks by number of streams"""
+        df_top = self.__get_top_tracks_data(year=year)
+        df_top = df_top[df_top['noStreams'] > threshold_number] if threshold_number else df_top
+        df_top = df_top.sort_values(by=['noStreams'], ascending=False)
+        title = f"Top tracks by number of streams: {year}" if year else f"Top tracks by number of streams: {self.start_year}/{self.end_year}"
+        return self.__generate_bar_plot(df_top, x='fullName', y='noStreams', title=title, xaxis_title='Track name', yaxis_title='Number of streams')
+
+    def daily_listening_time(self, year: int = None, groupByMonth: bool = None):
+        """
+        Daily listening time graph.
+
+        This method generates graph visualizing daily listening time of Spotify.
+
+        Parameters
+        ----------
+        year : int, optional
+            Whether to select data for a specific year.
+        groupByMonth : bool, optional
+            Whether to aggregated data by months.
+        """
         # copy df with only ts and ms_played columns, change ts to format with only date
-        df_time = self.df[['ts', 'ms_played']]
+        df_time = self.df[['ts', 'ms_played']].copy()
         df_time['ts'] = pd.to_datetime(df_time['ts'])
         
         # group by month, or by days
@@ -83,73 +109,13 @@ class musicHistory_extended_file:
         else:
             title = f"Listening time to Spotify streams per day: {self.start_year}/{self.end_year}"
         
-        # plot Daily listening time graph
-        fig = px.bar(df_time_sum, 
-                     x='ts', y='hrPlayed', 
-                     title=title)
-        fig.update_traces(hovertemplate='<b>Date:</b> %{x|%b %Y}<br><b>Streaming time:</b> %{y}<br>')
-        fig.update_layout(bargap=0.05, yaxis_title='Hours [h]', xaxis_title=None)
-        # fig.show()
+        fig = self.__generate_bar_plot(df_time_sum, x='ts', y='hrPlayed', title=title, xaxis_title='', yaxis_title='Hours [h]')
+        fig.update_traces(hovertemplate='<b>Date:</b> %{x|%d %b %Y}<br><b>Streaming time:</b> %{y}<br>')
         return fig
-
-    def top_tracks(self, top=None, noStreamsGrph=False, streamTimeGrph=False, threshold_number=10, threshold_time_hrs=1, year=None):
-        """Top tracks graph by number of streams/stream time"""
-        # Group records by track name and artist, summing listening time and counting number of streams. Change miliseconds to hours
-        df_top = self.df
-        df_top['ts'] = pd.to_datetime(df_top['ts'])
-        fig = None
-
-        if year:
-            df_top = df_top[df_top['ts'].dt.year == year]
-        if noStreamsGrph or streamTimeGrph:
-            df_top = df_top.groupby(['master_metadata_track_name', 'master_metadata_album_artist_name'], as_index=False) \
-                        .agg({'ts':'count', 'ms_played':'sum'}) \
-                        .rename(columns={'ts':'noStreams', 'ms_played':'streamTimeMs'})
-            df_top['fullName'] = df_top['master_metadata_album_artist_name'] + ' - ' + df_top['master_metadata_track_name']
-            df_top['streamTimeHr'] = df_top['streamTimeMs']/(1000*60*60)
-            df_top = df_top.drop(['master_metadata_album_artist_name'], axis=1)
-            df_top = df_top.drop(['master_metadata_track_name'], axis=1)
-            df_top = df_top.drop(['streamTimeMs'], axis=1)
-        
-        # Number of streams by track + Streaming time
-        if noStreamsGrph:
-            df_top_noStreams = df_top.sort_values(by=['noStreams'], ascending=False)
-            if top:
-                df_top_noStreams = df_top_noStreams.head(top)
-            if threshold_number:
-                df_top_noStreams = df_top_noStreams[df_top_noStreams['noStreams'] > threshold_number] 
-            if year:
-                title = f"Number of streams by track: {year} ||| Number of tracks: {df_top_noStreams.shape[0]}"
-            else:
-                title = f"Number of streams by track: {self.start_year}/{self.end_year} ||| Number of tracks: {df_top_noStreams.shape[0]}"
-            fig = px.bar(df_top_noStreams, 
-                         x='fullName', y='noStreams', 
-                         labels={'Column1' : 'Track name', 'Column2' : 'Number of streams'},
-                         hover_data={'streamTimeHr': ':.2f'},
-                         title=title)
-            fig.update_traces(hovertemplate='<b>Track: </b>%{x}<br><b>Number of Streams: </b>%{y}<br><b>Stream Time (hours): </b>%{customdata[0]:.2f}')
-            fig.update_layout(bargap=0.01)
-            # fig.show()
-
-        # Streaming time by track + Number of streams
-        if streamTimeGrph:
-            df_top_streamTimeHr = df_top.sort_values(by=['streamTimeHr'], ascending=False)
-            if top:
-                df_top_streamTimeHr = df_top_streamTimeHr.head(top)
-            if threshold_time_hrs:
-                df_top_streamTimeHr = df_top_streamTimeHr[df_top_streamTimeHr['streamTimeHr'] > threshold_time_hrs] 
-            if year:
-                title = f"Streaming time by track: {year} ||| Number of tracks: {df_top_streamTimeHr.shape[0]}"
-            else:
-                title = f"Streaming time by track: {self.start_year}/{self.end_year} ||| Number of tracks: {df_top_streamTimeHr.shape[0]}"
-            
-            fig = px.bar(df_top_streamTimeHr, 
-                         x='fullName', y='streamTimeHr', 
-                         labels={'Column1' : 'Track name', 'Column2' : 'Streaming time'},
-                         hover_data={'noStreams': ':.0f'},
-                         title=title)
-            fig.update_traces(hovertemplate='<b>Track: </b>%{x}<br><b>Stream Time (hours): </b>%{y:.2f}<br><b>Number of Streams: </b>%{customdata[0]}')
-            fig.update_layout(bargap=0.01)
-            # fig.show()
-        
+    
+    @staticmethod
+    def __generate_bar_plot(data, x, y, title, xaxis_title, yaxis_title):
+        fig = px.bar(data, x=x, y=y, labels={x: xaxis_title, y: yaxis_title}, title=title)
+        fig.update_layout(bargap=0.05)
         return fig
+    

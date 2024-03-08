@@ -7,7 +7,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
-history = musicHistory_extended_file()
+history = MusicHistoryExtendedFile()
 
 @app.context_processor
 def inject_colors():
@@ -37,14 +37,14 @@ def daily_listening_time():
 
 @app.route('/top_tracks_duration')
 def top_tracks_duration():
-    fig = history.top_tracks(streamTimeGrph=True)
+    fig = history.top_tracks_by_stream_time(year=2023)
     plotly_html = fig.to_html(full_html=False)
     
     return render_template('plot.html', plotly_html=plotly_html)
 
 @app.route('/top_tracks_count')
 def top_tracks_count():
-    fig = history.top_tracks(noStreamsGrph=True)
+    fig = history.top_tracks_by_streams(year=2023)
     plotly_html = fig.to_html(full_html=False)
     
     return render_template('plot.html', plotly_html=plotly_html)

@@ -2,20 +2,19 @@ import json, os
 import pandas as pd
 import plotly.express as px
 
-class musicHistory_extended:
+class musicHistory_extended_file:
     df = pd.DataFrame()
     total_time = 0
-    start_date = 0
-    end_date = 0
+    start_year = 0
+    end_year = 0
 
-    def __init__(self):
+    def __init__(self, path: str='./MyData_all/'):
         substring = 'Streaming'
-        directory = './MyData_all/'
         file_paths = []
         dfs = []
 
         # get paths to files with our data
-        for root, dirs, files in os.walk(directory):
+        for root, dirs, files in os.walk(path):
             for file in files:
                 if substring in file:
                     file_path = os.path.join(root, file)
@@ -49,12 +48,12 @@ class musicHistory_extended:
             'reason_start', 'reason_end', 'shuffle', 'skipped', 'offline', 'offline_timestamp', 
             'incognito_mode'], axis=1)
     
-        # sort by timestamp(ts), get start_date end_date, save it
+        # sort by timestamp(ts), get start_year end_year, save it
         df_copy.sort_values(by=['ts'])
         df_copy['ts'] = pd.to_datetime(df_copy['ts'])
         df_copy['ts'] = pd.to_datetime(df_copy['ts'].dt.strftime("%Y-%m-%d"))
-        self.start_date = df_copy.head(1)['ts'].dt.year.tolist()[0]
-        self.end_date = df_copy.tail(1)['ts'].dt.year.tolist()[0]
+        self.start_year = df_copy.head(1)['ts'].dt.year.tolist()[0]
+        self.end_year = df_copy.tail(1)['ts'].dt.year.tolist()[0]
         return 
 
     def daily_listening_time(self, year=None, groupByMonth=None):
@@ -78,7 +77,7 @@ class musicHistory_extended:
             df_time_sum = df_time_sum[df_time_sum['ts'].dt.year == year]
             title = f"Listening time to Spotify streams per day: {year}"
         else:
-            title = f"Listening time to Spotify streams per day: {self.start_date}/{self.end_date}"
+            title = f"Listening time to Spotify streams per day: {self.start_year}/{self.end_year}"
         
         # plot Daily listening time graph
         fig = px.bar(df_time_sum, 
@@ -86,16 +85,16 @@ class musicHistory_extended:
                      title=title)
         fig.update_traces(hovertemplate='<b>Date:</b> %{x|%b %Y}<br><b>Streaming time:</b> %{y}<br>')
         fig.update_layout(bargap=0.05, yaxis_title='Hours [h]', xaxis_title=None)
-        fig.show()
-
-
-        return
+        # fig.show()
+        return fig
 
     def top_tracks(self, top=None, noStreamsGrph=True, streamTimeGrph=False, threshold_number=10, threshold_time_hrs=1, year=None):
         """Top tracks graph by number of streams/stream time"""
         # Group records by track name and artist, summing listening time and counting number of streams. Change miliseconds to hours
         df_top = self.df
         df_top['ts'] = pd.to_datetime(df_top['ts'])
+        fig = None
+
         if year:
             df_top = df_top[df_top['ts'].dt.year == year]
         if noStreamsGrph or streamTimeGrph:
@@ -118,7 +117,7 @@ class musicHistory_extended:
             if year:
                 title = f"Number of streams by track: {year} ||| Number of tracks: {df_top_noStreams.shape[0]}"
             else:
-                title = f"Number of streams by track: {self.start_date}/{self.end_date} ||| Number of tracks: {df_top_noStreams.shape[0]}"
+                title = f"Number of streams by track: {self.start_year}/{self.end_year} ||| Number of tracks: {df_top_noStreams.shape[0]}"
             fig = px.bar(df_top_noStreams, 
                          x='fullName', y='noStreams', 
                          labels={'Column1' : 'Track name', 'Column2' : 'Number of streams'},
@@ -126,7 +125,7 @@ class musicHistory_extended:
                          title=title)
             fig.update_traces(hovertemplate='<b>Track: </b>%{x}<br><b>Number of Streams: </b>%{y}<br><b>Stream Time (hours): </b>%{customdata[0]:.2f}')
             fig.update_layout(bargap=0.01)
-            fig.show()
+            # fig.show()
 
         # Streaming time by track + Number of streams
         if streamTimeGrph:
@@ -138,7 +137,7 @@ class musicHistory_extended:
             if year:
                 title = f"Streaming time by track: {year} ||| Number of tracks: {df_top_streamTimeHr.shape[0]}"
             else:
-                title = f"Streaming time by track: {self.start_date}/{self.end_date} ||| Number of tracks: {df_top_streamTimeHr.shape[0]}"
+                title = f"Streaming time by track: {self.start_year}/{self.end_year} ||| Number of tracks: {df_top_streamTimeHr.shape[0]}"
             
             fig = px.bar(df_top_streamTimeHr, 
                          x='fullName', y='streamTimeHr', 
@@ -147,5 +146,6 @@ class musicHistory_extended:
                          title=title)
             fig.update_traces(hovertemplate='<b>Track: </b>%{x}<br><b>Stream Time (hours): </b>%{y:.2f}<br><b>Number of Streams: </b>%{customdata[0]}')
             fig.update_layout(bargap=0.01)
-            fig.show()
-        return
+            # fig.show()
+        
+        return fig

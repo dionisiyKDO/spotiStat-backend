@@ -1,5 +1,4 @@
 from MusicHistoryExtendedFile import *
-from musicHistory import *
 from settings import *
 
 from flask import Flask, render_template, request, redirect

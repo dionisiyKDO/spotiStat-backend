@@ -1,26 +1,44 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <title>{% block title %}{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/reset.css') }}" >
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.green.min.css"/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" >
+
+    {% block head %}{% endblock %}
 </head>
 <body>
-    <header>
-        <h1>Spotify Data Analysis</h1>
+    <header class="container">
         <nav>
-            {% if session.token_info %}
-                <a href="{{ url_for('auth.logout') }}">Logout</a>
-            {% else %}
-                <a href="{{ url_for('auth.login') }}">Login with Spotify</a>
-            {% endif %}
+            <ul>
+                <li><a href="{{url_for('main.index')}}"><strong>SpotiStat</strong></a></li>
+            </ul>
+            <ul>
+                {% if session.token_info %}
+                    <a href="{{ url_for('auth.logout') }}">Logout</a>
+                {% else %}
+                    <a href="{{ url_for('auth.login') }}">Login with Spotify</a>
+                {% endif %}
+            </ul>
         </nav>
     </header>
-    <main>
+
+    <main  class="container">
         {% block content %}{% endblock %}
     </main>
-    <footer>
-        <p>Powered by Spotify API</p>
+
+    <footer class="container">
+        {% block footer %}{% endblock %}
+        <small>
+            <p>Powered by Spotify API</p>
+            © Kaminskyi Denys 2024
+        </small>
+        
     </footer>
+    {% block scripts %}{% endblock %}
 </body>
 </html>
+
+    

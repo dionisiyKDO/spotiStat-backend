@@ -10,8 +10,5 @@
                 <li>{{ track.name }} by {{ track.artists[0].name }}</li>
             {% endfor %}
         </ul>
-    {% else %}
-        <h2>Welcome to Spotify Data Analysis</h2>
-        <a href="{{ url_for('auth.login') }}">Login with Spotify</a>
     {% endif %}
 {% endblock %}

@@ -1,0 +1,72 @@
+/* Globals */
+/* #region */
+html {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 18px;
+}
+
+body {
+    position: relative;
+    min-height: 100vh;
+}
+
+footer {
+    position: sticky;
+    top: 100vh;
+}
+
+button {
+    cursor: pointer;
+}
+
+p, span {
+    margin-bottom: 0.7rem;
+}
+
+span {
+    display: inline-block;
+}
+
+@media screen and (max-width: 1024px) {
+    html {
+        font-size: 16px;
+    }
+}
+
+.line {
+    border: 2px solid #1c222e;
+    border-radius: 2px;
+    margin-bottom: 1rem;
+}
+
+a {
+    text-decoration: none;
+}
+
+.suggestions-list {
+    position: absolute;
+    z-index: 1000;
+    margin-top: -18px;
+
+    background: var(--pico-muted-border-color);
+    color: var(--pico-mark-color);    
+    border-radius: 5px;
+
+    max-height: 200px;
+    overflow-y: auto;
+    width: auto;
+    display: none;
+}
+.suggestions-list .suggestion-item {
+    padding: 10px;
+    cursor: pointer;
+}
+.suggestions-list .suggestion-item:hover {
+    color: var(--pico-muted-border-color);
+    background: var(--pico-mark-color);    
+}
+
+.index-container {
+    width: 850px;
+}
+/* #endregion */

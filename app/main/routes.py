@@ -6,7 +6,7 @@ from app.auth.routes import get_spotify_client
 from app.utils.utils import get_top_tracks
 
 
-@main_bp.route('/')
+@main_bp.route('/', methods=['GET', 'POST'])
 def index():
     if 'token_info' not in session:
         return render_template('index.html')

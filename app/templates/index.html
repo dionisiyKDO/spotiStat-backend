@@ -6,9 +6,9 @@
     {% if session.token_info %}
         <h2>Your Top 5 Tracks</h2>
         <ul>
-            {% for track in top_tracks %}
-                <li>{{ track.name }} by {{ track.artists[0].name }}</li>
-            {% endfor %}
+            <li><a href="{{ url_for('main.play_history') }}">get_play_history</a></li>
+            <li><a href="{{ url_for('main.liked_tracks') }}">get_liked_tracks</a></li>
+            
         </ul>
     {% endif %}
 {% endblock %}

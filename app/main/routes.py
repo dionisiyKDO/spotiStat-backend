@@ -1,9 +1,9 @@
-from flask import Blueprint, render_template, session, redirect, url_for
+from flask import Blueprint, render_template, session, redirect, url_for, send_file
 
 from . import main_bp
 
 from app.auth.routes import get_spotify_client
-from app.utils.utils import get_top_tracks
+from app.utils.utils import *
 
 
 @main_bp.route('/', methods=['GET', 'POST'])
@@ -23,3 +23,28 @@ def results():
     sp = get_spotify_client()
     top_tracks = get_top_tracks(sp)
     return render_template('results.html', top_tracks=top_tracks)
+
+@main_bp.route('/play_history')
+def play_history():
+    if 'token_info' not in session:
+        return redirect(url_for('auth.login'))
+
+    # TODO: Add played time
+    # TODO: Add when it was played
+
+    sp = get_spotify_client()
+    play_history = get_play_history(sp, 50)
+    return render_template('play_history.html', play_history=play_history)
+
+@main_bp.route('/liked_tracks')
+def liked_tracks():
+    if 'token_info' not in session:
+        return redirect(url_for('auth.login'))
+
+    # TODO: Check popularity field
+
+    sp = get_spotify_client()
+    liked_tracks = get_liked_tracks(sp)
+    liked_tracks_sorted = sorted(liked_tracks, key=lambda x: x['popularity'], reverse=True)
+    return render_template('liked_tracks.html', liked_tracks=liked_tracks_sorted)
+

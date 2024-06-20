@@ -25,4 +25,83 @@ button {
     margin-bottom: 1rem;
 }
 
+.container-narrow {
+    width: 65%;
+}
+@media screen and (max-width: 1280px) {
+    .container-narrow {
+        width: 100%;
+    }
+}
+/* #endregion */
+
+/* Track List */
+/* #region */
+.track-list {
+    padding: 0;
+    margin: 0;
+}
+.track-item {
+    height: 6rem;
+    padding: 0.5em;
+    padding-left: 0.75em;
+
+    display: flex;
+    align-items: center;
+
+    border-bottom: 1px solid var(--pico-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+.track-item:hover {
+    background-color: var(--pico-muted-border-color);
+}
+
+.track-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex: 1;
+    padding-left: 1em;
+}
+
+.track-name {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: white;
+    margin: 0;
+}
+.track-artist {
+    font-size: 1em;
+    margin: 0;
+}
+.track-popularity {
+    margin: -1em;
+    text-shadow: 0 0 4px black;
+    color: white;
+}
+
+.album-image-wrapper {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.album-image {
+    height: 100%;
+    border-radius: 5px;
+}
+
+@media (max-width: 600px) {
+    .track-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .track-info {
+        padding-left: 0;
+        margin-top: 0.5em;
+    }
+    .album-image {
+        margin-bottom: 0.5em;
+    }
+}
 /* #endregion */

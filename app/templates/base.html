@@ -6,7 +6,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/reset.css') }}" >
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.jade.min.css"/>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" >
-
+    <title>{% block title %}{% endblock %}</title>
+    {% block styles %}{% endblock %}
     {% block head %}{% endblock %}
 </head>
 <body>

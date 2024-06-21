@@ -74,10 +74,11 @@ button {
     font-size: 1em;
     margin: 0;
 }
-.track-popularity {
-    margin: -1em;
-    text-shadow: 0 0 4px black;
-    color: white;
+.track-meta {
+    display: inline-block;
+    border-top: 2px solid #1c222e;
+    padding-top: 0.3em;
+    margin-top: 0.3em;
 }
 
 .album-image-wrapper {
@@ -90,6 +91,9 @@ button {
     height: 100%;
     border-radius: 5px;
 }
+
+
+
 
 @media (max-width: 600px) {
     .track-item {

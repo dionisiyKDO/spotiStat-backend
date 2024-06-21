@@ -1,6 +1,7 @@
 import spotipy
 import pandas as pd
 import matplotlib.pyplot as plt
+from datetime import datetime
 
 def get_play_history(sp, limit=50):
     results = sp.current_user_recently_played(limit=limit)
@@ -14,7 +15,9 @@ def get_play_history(sp, limit=50):
             'artist': track['artists'][0]['name'],
             'album_image_url': track['album']['images'][0]['url'],
             'duration_ms': track['duration_ms'],
-            'played_at': item['played_at']
+            # 'played_at': item['played_at'],
+            'played_at': datetime.strptime(item['played_at'], '%Y-%m-%dT%H:%M:%S.%fZ'),
+            'popularity': track['popularity']
         })
     return play_history
 

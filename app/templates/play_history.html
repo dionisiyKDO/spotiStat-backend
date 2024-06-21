@@ -4,10 +4,10 @@
 
 {% block content %}
     {% if session.token_info %}
-        <h2>Track List</h2>
+        <h2>Play history</h2>
         <ul class="track-list">
             {% for track in play_history %}
-                <li class="track-item">
+                <li class="track-item play-history-track-item">
                     <div class="album-image-wrapper">
                         <img src="{{ track['album_image_url'] }}" alt="Album Image" class="album-image">
                     </div>

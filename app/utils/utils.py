@@ -21,8 +21,13 @@ def get_play_history(sp, limit=50):
         })
     return play_history
 
-def get_liked_tracks(sp, limit=50):
-    results = sp.current_user_saved_tracks(limit)
+def get_liked_tracks(sp, limit=None):
+    if limit:
+        results = sp.current_user_saved_tracks(limit)
+    else:
+        # TODO: Realize offset logic for pagination
+        print('aboba')
+        results = sp.current_user_saved_tracks(offset=15)
     liked_tracks = []
     for item in results['items']:
         track = item['track']

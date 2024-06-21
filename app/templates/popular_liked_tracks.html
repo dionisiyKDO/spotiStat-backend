@@ -1,14 +1,34 @@
+<!-- Delete -->
 {% extends "base.html" %}
 
 {% block title %}Liked Tracks{% endblock %}
 
+{% block styles %} 
+<style>
+    .track-popularity-bar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 100%;
+        z-index: -1;
+    }
+
+    .track-popularity-bar-fill {
+        width: var(--popularity);
+        height: 100%;
+        background-color: var(--pico-muted-border-color);
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
     <div class="container container-narrow">
         {% if session.token_info %}
-            <div class="section-title">
-                <h2>Liked Tracks</h2>
-                <!-- TODO: Add form for pagination logic -->
-            </div>
+            <h2>Popular Liked Tracks</h2>
             <ul class="track-list">
                 {% for track in liked_tracks %}
                     <li class="track-item">

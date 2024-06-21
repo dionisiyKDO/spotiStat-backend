@@ -2,41 +2,16 @@
 
 {% block title %}Home{% endblock %}
 
-{% block head %}
-<style>
-    .fancy-links {
-        padding: 0;
-        margin: 0;
-    }
-    
-    .fancy-links li {
-        margin-bottom: 1rem;
-        display: block
-    }
-
-    .fancy-links a {
-        display: block;
-        padding: 0.75rem;
-        border-radius: 5px;
-        text-decoration: none;
-        color: white;
-        background-color: var(--pico-primary-background);
-        transition: background-color 0.3s ease, box-shadow 0.3s ease;
-    }
-
-    .fancy-links a:hover {
-        background-color: var(--pico-primary-hover-background);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    }
-</style>
-{% endblock %}
-
 {% block content %}
     {% if session.token_info %}
-        <h2>Your Top 5 Tracks</h2>
-        <ul class="fancy-links">
+        <h2>Take action</h2>
+        <ul class="links">
             <li><a href="{{ url_for('main.play_history') }}">Get Play History</a></li>
-            <li><a href="{{ url_for('main.liked_tracks') }}">Get Liked Tracks</a></li>
+            <li class="link-group">
+                <a href="{{ url_for('main.liked_tracks') }}">Get Liked Tracks</a>
+                <a href="{{ url_for('main.popular_liked_tracks') }}">Get Popular Liked Tracks</a>
+            </li>
+            <li><a href="{{ url_for('main.play_intervals') }}">Get Play Intervals</a></li>
             
         </ul>
     {% endif %}

@@ -166,3 +166,64 @@ button {
     }
 }
 /* #endregion */
+
+/* Time ranges */
+/* #region */
+.title-wrapper {
+    margin-left: 2rem;
+    margin-bottom: 1rem;
+}
+
+.time-ranges {
+    display: flex;
+    align-items: center;
+}
+
+.time-ranges p {
+    margin: 0;
+    font-weight: bold;
+}
+
+.time-range-group {
+    display: flex;
+}
+
+.time-range-group a {
+    margin-left: 1rem;
+    text-decoration: none;
+
+    transition: color 0.3s ease;
+}
+
+.time-range-group a:hover {
+    color: var(--pico-primary-color);
+}
+
+/* #endregion */
+
+/* Top Artists | Top Tracks |  */
+/* #region */
+.artists-list {
+    grid-template-columns: repeat(5, minmax(15%, 1fr));
+    padding: 1rem 2rem 2rem 2rem;
+    margin: 0;
+}
+
+.artist-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.artist-image {
+    /* width: 100%; */
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 5px;
+}
+
+.artist-item, .track-item {
+    padding: 0;
+}
+/* #endregion */

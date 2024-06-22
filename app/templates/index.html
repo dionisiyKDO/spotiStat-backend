@@ -11,7 +11,11 @@
                 <a href="{{ url_for('main.liked_tracks') }}">Get Liked Tracks</a>
                 <a href="{{ url_for('main.popular_liked_tracks') }}">Get Popular Liked Tracks</a>
             </li>
-            <li><a href="{{ url_for('main.play_intervals') }}">Get Play Intervals</a></li>
+            <li class="link-group">
+                <a href="{{ url_for('main.top_artists') }}">Top artists</a>
+                <a href="{{ url_for('main.top_tracks') }}">Top tracks</a>
+            </li>
+            
             
         </ul>
     {% endif %}

@@ -39,7 +39,10 @@ def get_liked_tracks(sp, limit=None):
         })
     return liked_tracks
 
-
+def get_top_artists(sp, time_range='medium_term', limit=50):
+    print(time_range)
+    results = sp.current_user_top_artists(time_range=time_range, limit=limit)
+    return results['items']
 
 def get_top_tracks(sp, time_range='medium_term', limit=50):
     results = sp.current_user_top_tracks(time_range=time_range, limit=limit)

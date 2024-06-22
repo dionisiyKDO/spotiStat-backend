@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Play history{% endblock %}
+
+{% block content %}
+    {% if session.token_info %}
+        <div class="title-wrapper">
+            <h2>Play history</h2>
+            <div class="time-ranges">
+                <p>Time ranges:</p>
+                <div class="time-range-group">
+                    <a href="{{ url_for('main.top_artists', time_range='short_term') }}">Short term</a>
+                    <a href="{{ url_for('main.top_artists', time_range='medium_term') }}">Medium term</a>
+                    <a href="{{ url_for('main.top_artists', time_range='long_term') }}">Long term</a>
+                </div>
+            </div>
+        </div>
+        <div class="artists-list grid">
+            {% for artist in top_artists %}
+                <div class="artist-item">
+                    <div class="artist-image-wrapper">
+                        <img src="{{ artist['images'][0]['url'] }}" alt="Artist Image" class="artist-image">
+                    </div>
+                    <div class="artist-info">
+                        <div class="artist-name">{{ loop.index }}. {{ artist['name'] }}</div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock %}

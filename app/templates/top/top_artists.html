@@ -15,6 +15,7 @@
                 </div>
             </div>
         </div>
+        <!-- TODO: Check screen sizes display off all cards -->
         <div class="artists-list grid">
             {% for artist in top_artists %}
                 <div class="artist-item">
@@ -22,7 +23,9 @@
                         <img src="{{ artist['images'][0]['url'] }}" alt="Artist Image" class="artist-image">
                     </div>
                     <div class="artist-info">
-                        <div class="artist-name">{{ loop.index }}. {{ artist['name'] }}</div>
+                        <div class="artist-name">{{ loop.index }}. {{ artist['name'] }} 
+                            <a href="{{ artist['external_urls']['spotify'] }}"><i class="fab fa-spotify"></i></a>
+                        </div>
                     </div>
                 </div>
             {% endfor %}

@@ -5,6 +5,12 @@ html {
     font-size: 18px;
 }
 
+@media (max-width: 767px) {
+    .html {
+        font-size: 14px;
+    }
+}
+
 body {
     position: relative;
     min-height: 100vh;
@@ -209,6 +215,24 @@ button {
     margin: 0;
 }
 
+@media (max-width: 1535px) {
+    .artists-list {
+        grid-template-columns: repeat(4, minmax(15%, 1fr));
+    }
+}
+
+@media (max-width: 1279px) {
+    .artists-list {
+        grid-template-columns: repeat(3, minmax(15%, 1fr));
+    }
+}
+
+@media (max-width: 1023px) {
+    .artists-list {
+        grid-template-columns: repeat(2, minmax(20%, 1fr));
+    }
+}
+
 .artist-item {
     display: flex;
     flex-direction: column;
@@ -217,13 +241,19 @@ button {
 }
 
 .artist-image {
-    /* width: 100%; */
     aspect-ratio: 1 / 1;
     object-fit: cover;
-    border-radius: 5px;
+    border-radius: 7px;
+    border: 2px solid var(--pico-secondary);
 }
 
-.artist-item, .track-item {
+.artist-item {
     padding: 0;
+}
+
+.artist-info {
+    padding: 0;
+    margin-top: 0.5em;
+    text-align: center;
 }
 /* #endregion */

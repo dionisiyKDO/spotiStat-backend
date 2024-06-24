@@ -9,6 +9,8 @@
 {% block content %}
     {% if session.token_info %}
         <h2>Play history</h2>
+        <p>A track must be played for more than 30 seconds to be included in play history</p>
+        <p>Tracks listened to while in "Private Session" will not be shown here.</p>
         <ul class="track-list">
             {% for track in play_history %}
                 <li class="track-item play-history-track-item">

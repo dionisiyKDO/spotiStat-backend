@@ -6,7 +6,6 @@ from datetime import datetime
 from flask import session
 from flask_caching import Cache
 
-# Initialize cache globally (assuming 'app' is your Flask app)
 cache = Cache(config={'CACHE_TYPE': 'simple', 'CACHE_DEFAULT_TIMEOUT': 300})
 
 def get_play_history(sp, limit=50):

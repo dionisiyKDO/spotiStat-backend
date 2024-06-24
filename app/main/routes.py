@@ -37,6 +37,7 @@ def liked_tracks():
     if 'token_info' not in session:
         return redirect(url_for('auth.login'))
 
+    # TODO: Add sorting feature
     sp = get_spotify_client()
     liked_tracks = get_liked_tracks(sp)
     return render_template('liked_tracks.html', liked_tracks=liked_tracks)

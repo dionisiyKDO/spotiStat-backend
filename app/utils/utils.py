@@ -45,11 +45,9 @@ def get_liked_tracks(sp, limit=None):
             results = sp.current_user_saved_tracks(limit)
         else:
             liked_tracks = []
-            i = 0
+            i = 0 
             while True:
-            # for i in range(1000):
                 results = sp.current_user_saved_tracks(limit=50, offset=i*50)
-                print(results)
                 if results['items'].__len__() > 0:
                     for item in results['items']:
                         track = item['track']
@@ -61,9 +59,7 @@ def get_liked_tracks(sp, limit=None):
                         })
                 else: break
                 i += 1
-        # Cache the result for future use
         cache.set(cache_key, liked_tracks)
-    print (len(liked_tracks))
     return liked_tracks
 
 def get_top_artists(sp, time_range='medium_term', limit=50):

@@ -32,15 +32,15 @@ def play_history():
     return render_template('play_history.html', play_history=play_history)
 
 
-@main_bp.route('/liked_tracks')
-def liked_tracks():
+@main_bp.route('/full_liked_tracks')
+def full_liked_tracks():
     if 'token_info' not in session:
         return redirect(url_for('auth.login'))
 
     # TODO: Add sorting feature
     sp = get_spotify_client()
     liked_tracks = get_liked_tracks(sp)
-    return render_template('liked_tracks.html', liked_tracks=liked_tracks)
+    return render_template('full_liked_tracks.html', liked_tracks=liked_tracks)
 
 
 # Section for top artists and top tracks

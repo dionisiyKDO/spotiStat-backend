@@ -6,25 +6,34 @@ from datetime import datetime
 from flask import session
 from flask_caching import Cache
 
-cache = Cache(config={'CACHE_TYPE': 'simple', 'CACHE_DEFAULT_TIMEOUT': 300})
+cache = Cache(config={'CACHE_TYPE': 'simple', 'CACHE_DEFAULT_TIMEOUT': 1200})
+# cache = Cache(config={'CACHE_TYPE': 'simple', 'CACHE_DEFAULT_TIMEOUT': 1})
 
 def get_play_history(sp, limit=50):
-    results = sp.current_user_recently_played(limit=limit)
+    user_id = session.get('user_id')
+    cache_key = f'play_history_{user_id}'
     
-    play_history = []
-    for item in results['items']:
-        track = item['track']
-        play_history.append({
-            'name': track['name'],
-            'artist': track['artists'][0]['name'],
-            'album_image_url': track['album']['images'][0]['url'],
-            'duration_ms': track['duration_ms'],
-            'played_at': datetime.strptime(item['played_at'], '%Y-%m-%dT%H:%M:%S.%fZ'),
-            'popularity': track['popularity']
-        })
+    play_history = cache.get(cache_key)
+    
+    
+    if not play_history:
+        results = sp.current_user_recently_played(limit=limit)
+        
+        play_history = []
+        for item in results['items']:
+            track = item['track']
+            play_history.append({
+                'name': track['name'],
+                'artist': track['artists'][0]['name'],
+                'album_image_url': track['album']['images'][0]['url'],
+                'duration_ms': track['duration_ms'],
+                'played_at': datetime.strptime(item['played_at'], '%Y-%m-%dT%H:%M:%S.%fZ'),
+                'popularity': track['popularity']
+            })
     return play_history
 
 def get_liked_tracks(sp, limit=None):
+    # TODO: Realize offset logic for pagination(?)
     user_id = session.get('user_id')
     cache_key = f'liked_tracks_{user_id}'
     
@@ -35,21 +44,26 @@ def get_liked_tracks(sp, limit=None):
         if limit:
             results = sp.current_user_saved_tracks(limit)
         else:
-            # TODO: Realize offset logic for pagination
             liked_tracks = []
-            for i in range(10):
-                results = sp.current_user_saved_tracks(limit=limit, offset=i*50)
-                
-                for item in results['items']:
-                    track = item['track']
-                    liked_tracks.append({
-                        'name': track['name'],
-                        'artist': track['artists'][0]['name'],
-                        'album_image_url': track['album']['images'][0]['url'],
-                        'popularity': track['popularity']
-                    })
+            i = 0
+            while True:
+            # for i in range(1000):
+                results = sp.current_user_saved_tracks(limit=50, offset=i*50)
+                print(results)
+                if results['items'].__len__() > 0:
+                    for item in results['items']:
+                        track = item['track']
+                        liked_tracks.append({
+                            'name': track['name'],
+                            'artist': track['artists'][0]['name'],
+                            'album_image_url': track['album']['images'][0]['url'],
+                            'popularity': track['popularity']
+                        })
+                else: break
+                i += 1
         # Cache the result for future use
         cache.set(cache_key, liked_tracks)
+    print (len(liked_tracks))
     return liked_tracks
 
 def get_top_artists(sp, time_range='medium_term', limit=50):

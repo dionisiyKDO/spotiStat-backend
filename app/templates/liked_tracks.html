@@ -20,6 +20,7 @@
                         <div class="track-popularity-bar">
                             <div class="track-popularity-bar-fill" style="--popularity: {{ track['popularity'] }}%"></div>
                         </div>
+                        <div class="track-number">{{ loop.index }}</div>
                         <div class="album-image-wrapper">
                             <img src="{{ track['album_image_url'] }}" alt="Album Image" class="album-image">
                         </div>

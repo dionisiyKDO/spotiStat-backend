@@ -3,6 +3,10 @@
 
 {% block title %}Liked Tracks{% endblock %}
 
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/track_list.css') }}">
+{% endblock %}
+
 {% block styles %} 
 <style>
     .track-popularity-bar {

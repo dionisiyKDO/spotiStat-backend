@@ -2,6 +2,10 @@
 
 {% block title %}Play history{% endblock %}
 
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/top_artists.css') }}">
+{% endblock %}
+
 {% block content %}
     {% if session.token_info %}
         <div class="title-wrapper">

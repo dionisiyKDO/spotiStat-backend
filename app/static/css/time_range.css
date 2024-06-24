@@ -1,0 +1,33 @@
+/* Time ranges */
+/* #region */
+.title-wrapper {
+    margin-left: 2rem;
+    margin-bottom: 1rem;
+}
+
+.time-ranges {
+    display: flex;
+    align-items: center;
+}
+
+.time-ranges p {
+    margin: 0;
+    font-weight: bold;
+}
+
+.time-range-group {
+    display: flex;
+}
+
+.time-range-group a {
+    margin-left: 1.5rem;
+    text-decoration: none;
+
+    transition: color 0.3s ease;
+}
+
+.time-range-group a:hover {
+    color: var(--pico-primary-color);
+}
+
+/* #endregion */

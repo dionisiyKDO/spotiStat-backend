@@ -3,6 +3,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
 
+from flask import session
+from flask_caching import Cache
+
+# Initialize cache globally (assuming 'app' is your Flask app)
+cache = Cache(config={'CACHE_TYPE': 'simple', 'CACHE_DEFAULT_TIMEOUT': 300})
+
 def get_play_history(sp, limit=50):
     results = sp.current_user_recently_played(limit=limit)
     
@@ -20,20 +26,31 @@ def get_play_history(sp, limit=50):
     return play_history
 
 def get_liked_tracks(sp, limit=None):
-    if limit:
-        results = sp.current_user_saved_tracks(limit)
-    else:
-        # TODO: Realize offset logic for pagination
-        results = sp.current_user_saved_tracks(offset=15)
-    liked_tracks = []
-    for item in results['items']:
-        track = item['track']
-        liked_tracks.append({
-            'name': track['name'],
-            'artist': track['artists'][0]['name'],
-            'album_image_url': track['album']['images'][0]['url'],
-            'popularity': track['popularity']
-        })
+    user_id = session.get('user_id')
+    cache_key = f'liked_tracks_{user_id}'
+    
+    liked_tracks = cache.get(cache_key)
+    
+    if not liked_tracks:
+        liked_tracks = []
+        if limit:
+            results = sp.current_user_saved_tracks(limit)
+        else:
+            # TODO: Realize offset logic for pagination
+            liked_tracks = []
+            for i in range(10):
+                results = sp.current_user_saved_tracks(limit=limit, offset=i*50)
+                
+                for item in results['items']:
+                    track = item['track']
+                    liked_tracks.append({
+                        'name': track['name'],
+                        'artist': track['artists'][0]['name'],
+                        'album_image_url': track['album']['images'][0]['url'],
+                        'popularity': track['popularity']
+                    })
+        # Cache the result for future use
+        cache.set(cache_key, liked_tracks)
     return liked_tracks
 
 def get_top_artists(sp, time_range='medium_term', limit=50):

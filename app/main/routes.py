@@ -11,9 +11,7 @@ def index():
     if 'token_info' not in session:
         return render_template('index.html')
     
-    sp = get_spotify_client()
-    top_tracks = get_top_tracks(sp, limit=5)
-    return render_template('index.html', top_tracks=top_tracks)
+    return render_template('index.html')
 
 @main_bp.route('/results')
 def results():
@@ -28,8 +26,6 @@ def results():
 def play_history():
     if 'token_info' not in session:
         return redirect(url_for('auth.login'))
-
-    # TODO: Add played time
 
     sp = get_spotify_client()
     play_history = get_play_history(sp)

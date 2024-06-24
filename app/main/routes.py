@@ -75,8 +75,8 @@ def top_tracks():
 
     time_range = request.args.get('time_range', 'medium_term')
     sp = get_spotify_client()
-    top_tracks = get_top_tracks(sp)
-    return render_template('top_tracks.html', top_tracks=top_tracks)
+    top_tracks = get_top_tracks(sp, time_range)
+    return render_template('top/top_tracks.html', top_tracks=top_tracks)
 
 
 # endregion

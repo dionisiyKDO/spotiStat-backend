@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Play history{% endblock %}
+
+{% block content %}
+    {% if session.token_info %}
+        <div class="title-wrapper">
+            <h2>Top tracks</h2>
+            <div class="time-ranges">
+                <p>Time ranges:</p>
+                <div class="time-range-group">
+                    <a href="{{ url_for('main.top_tracks', time_range='short_term') }}">Short term (4 weeks)</a>
+                    <a href="{{ url_for('main.top_tracks', time_range='medium_term') }}">Medium term (6 months)</a>
+                    <a href="{{ url_for('main.top_tracks', time_range='long_term') }}">Long term (12 months)</a>
+                </div>
+            </div>
+        </div>
+        <!-- TODO: Clear tracks + loading animation when page loading for different time ranges -->
+
+        <ul class="track-list">
+            {% for track in top_tracks %}
+                <li class="track-item play-history-track-item">
+                    <div class="album-image-wrapper">
+                        <img src="{{ track['album_image_url'] }}" alt="Album Image" class="album-image">
+                    </div>
+                    <div class="track-info">
+                        <div class="track-name">{{ track['name'] }}</div>
+                        <div class="track-artist">{{ track['artist'] }} <a href="{{ track['spotify_url'] }}"><i class="fab fa-spotify"></i></a></div>
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+{% endblock %}

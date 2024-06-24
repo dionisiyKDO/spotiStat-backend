@@ -5,7 +5,6 @@ from datetime import datetime
 
 def get_play_history(sp, limit=50):
     results = sp.current_user_recently_played(limit=limit)
-    # return results['items']
     
     play_history = []
     for item in results['items']:
@@ -15,7 +14,6 @@ def get_play_history(sp, limit=50):
             'artist': track['artists'][0]['name'],
             'album_image_url': track['album']['images'][0]['url'],
             'duration_ms': track['duration_ms'],
-            # 'played_at': item['played_at'],
             'played_at': datetime.strptime(item['played_at'], '%Y-%m-%dT%H:%M:%S.%fZ'),
             'popularity': track['popularity']
         })
@@ -26,7 +24,6 @@ def get_liked_tracks(sp, limit=None):
         results = sp.current_user_saved_tracks(limit)
     else:
         # TODO: Realize offset logic for pagination
-        print('aboba')
         results = sp.current_user_saved_tracks(offset=15)
     liked_tracks = []
     for item in results['items']:
@@ -40,28 +37,20 @@ def get_liked_tracks(sp, limit=None):
     return liked_tracks
 
 def get_top_artists(sp, time_range='medium_term', limit=50):
-    print(time_range)
+    # TODO: Process results
     results = sp.current_user_top_artists(time_range=time_range, limit=limit)
     return results['items']
 
 def get_top_tracks(sp, time_range='medium_term', limit=50):
     results = sp.current_user_top_tracks(time_range=time_range, limit=limit)
-    return results['items']
+    top_tracks = []
+    for track in results['items']:
+        top_tracks.append({
+            'name': track['name'],
+            'artist': track['artists'][0]['name'], # TODO: handle multiple artists
+            'album_image_url': track['album']['images'][0]['url'],
+            'spotify_url': track['album']['external_urls']['spotify'],
+            'popularity': track['popularity']
+        })
+    return top_tracks
 
-def plot_interest_curve(sp):
-    history = get_play_history(sp)
-    df = pd.DataFrame(history)
-    df['played_at'] = pd.to_datetime(df['played_at'])
-    df.set_index('played_at', inplace=True)
-    df['count'] = 1
-    df = df.groupby('name').resample('M').sum().reset_index()
-
-    plt.figure(figsize=(10, 6))
-    for track in df['name'].unique():
-        track_df = df[df['name'] == track]
-        plt.plot(track_df['played_at'], track_df['count'], label=track)
-    plt.title('Interest Curve for Tracks')
-    plt.xlabel('Month')
-    plt.ylabel('Number of Plays')
-    plt.legend()
-    plt.show()

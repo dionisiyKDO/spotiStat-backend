@@ -37,10 +37,23 @@ def full_liked_tracks():
     if 'token_info' not in session:
         return redirect(url_for('auth.login'))
 
-    # TODO: Add sorting feature
     sp = get_spotify_client()
-    liked_tracks = get_liked_tracks(sp)
-    return render_template('full_liked_tracks.html', liked_tracks=liked_tracks)
+    limit = 50
+    offset = int(request.args.get('offset', 0))
+    sort_by = request.args.get('sort_by', 'popularity')
+    
+    liked_tracks = get_liked_tracks(sp, limit=limit, offset=offset)
+    
+    if sort_by == 'name':
+        liked_tracks.sort(key=lambda x: x['name'])
+    elif sort_by == 'artist':
+        liked_tracks.sort(key=lambda x: x['artist'])
+    else:
+        liked_tracks.sort(key=lambda x: x['popularity'], reverse=True)
+    
+    return render_template('full_liked_tracks.html', liked_tracks=liked_tracks, current_offset=offset, sort_by=sort_by)
+
+
 
 
 # Section for top artists and top tracks

@@ -32,7 +32,7 @@ def get_play_history(sp, limit=50):
             })
     return play_history
 
-def get_liked_tracks(sp, limit=None):
+def gget_liked_tracks(sp, limit=None):
     # TODO: Realize offset logic for pagination(?)
     user_id = session.get('user_id')
     cache_key = f'liked_tracks_{user_id}'
@@ -61,6 +61,27 @@ def get_liked_tracks(sp, limit=None):
                 i += 1
         cache.set(cache_key, liked_tracks)
     return liked_tracks
+
+def get_liked_tracks(sp, limit=50, offset=0):
+    user_id = session.get('user_id')
+    cache_key = f'liked_tracks_{user_id}_limit_{limit}_offset_{offset}'
+    
+    liked_tracks = cache.get(cache_key)
+    
+    if not liked_tracks:
+        liked_tracks = []
+        results = sp.current_user_saved_tracks(limit=limit, offset=offset)
+        for item in results['items']:
+            track = item['track']
+            liked_tracks.append({
+                'name': track['name'],
+                'artist': track['artists'][0]['name'],
+                'album_image_url': track['album']['images'][0]['url'],
+                'popularity': track['popularity']
+            })
+        cache.set(cache_key, liked_tracks)
+    return liked_tracks
+
 
 def get_top_artists(sp, time_range='medium_term', limit=50):
     # TODO: Process results

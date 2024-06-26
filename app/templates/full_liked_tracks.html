@@ -13,6 +13,17 @@
                 <h2>Liked Tracks</h2>
                 <p><small>Popularity calculated by Spotify!</small></p>
                 <!-- TODO: Add form for pagination logic -->
+                <form method="GET" action="{{ url_for('main.full_liked_tracks') }}">
+                    <input type="hidden" name="offset" value="{{ current_offset }}">
+                    <select name="sort_by">
+                        <option value="popularity" {% if sort_by == 'popularity' %}selected{% endif %}>Popularity</option>
+                        <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Name</option>
+                        <option value="artist" {% if sort_by == 'artist' %}selected{% endif %}>Artist</option>
+                    </select>
+                    <button type="submit">Sort</button>
+                </form>
+                
+
             </div>
             <ul class="track-list">
                 {% for track in liked_tracks %}

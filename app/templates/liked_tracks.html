@@ -11,19 +11,25 @@
         {% if session.token_info %}
             <div class="section-title">
                 <h2>Liked Tracks</h2>
-                <p><small>Popularity calculated by Spotify!</small></p>
-                <!-- TODO: Add form for pagination logic -->
-                <form method="GET" action="{{ url_for('main.full_liked_tracks') }}">
-                    <input type="hidden" name="offset" value="{{ current_offset }}">
-                    <select name="sort_by">
-                        <option value="popularity" {% if sort_by == 'popularity' %}selected{% endif %}>Popularity</option>
-                        <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Name</option>
-                        <option value="artist" {% if sort_by == 'artist' %}selected{% endif %}>Artist</option>
-                    </select>
-                    <button type="submit">Sort</button>
-                </form>
                 
-
+                <div class="sort-options">
+                    <form action="/liked_tracks" method="get">
+                        <label for="sort_by">Sort by:</label>
+                        <select name="sort_by" id="sort_by">
+                            <option value="index" {% if request.args.get('sort_by') == 'index' %}selected{% endif %}>Index</option>
+                            <option value="name" {% if request.args.get('sort_by') == 'name' %}selected{% endif %}>Name</option>
+                            <option value="artist" {% if request.args.get('sort_by') == 'artist' %}selected{% endif %}>Artist</option>
+                            <option value="popularity" {% if request.args.get('sort_by') == 'popularity' %}selected{% endif %}>Popularity (It's calculated by Spotify!)</option>
+                        </select>
+                        <label for="order">Order:</label>
+                        <select name="order" id="order">
+                            <option value="desc" {% if request.args.get('order') == 'desc' %}selected{% endif %}>Descending</option>
+                            <option value="asc" {% if request.args.get('order') == 'asc' %}selected{% endif %}>Ascending</option>
+                        </select>
+                        <input type="submit" value="Sort">
+                    </form>
+                </div>
+                
             </div>
             <ul class="track-list">
                 {% for track in liked_tracks %}
@@ -31,7 +37,7 @@
                         <div class="track-popularity-bar">
                             <div class="track-popularity-bar-fill" style="--popularity: {{ track['popularity'] }}%"></div>
                         </div>
-                        <div class="track-number">{{ loop.index }}</div>
+                        <div class="track-number">{{ track['index'] + 1 }}</div>
                         <div class="album-image-wrapper">
                             <img src="{{ track['album_image_url'] }}" alt="Album Image" class="album-image">
                         </div>
@@ -48,5 +54,3 @@
         {% endif %}
     </div>
 {% endblock %}
-
-

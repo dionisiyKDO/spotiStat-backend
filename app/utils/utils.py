@@ -32,8 +32,7 @@ def get_play_history(sp, limit=50):
             })
     return play_history
 
-def gget_liked_tracks(sp, limit=None):
-    # TODO: Realize offset logic for pagination(?)
+def get_liked_tracks(sp, limit=None):
     user_id = session.get('user_id')
     cache_key = f'liked_tracks_{user_id}'
     
@@ -42,44 +41,34 @@ def gget_liked_tracks(sp, limit=None):
     if not liked_tracks:
         liked_tracks = []
         if limit:
-            results = sp.current_user_saved_tracks(limit)
+            results = sp.current_user_saved_tracks(limit=limit)
+            for item in results['items']:
+                track = item['track']
+                liked_tracks.append({
+                    'name': track['name'],
+                    'artist': track['artists'][0]['name'],
+                    'album_image_url': track['album']['images'][0]['url'],
+                    'popularity': track['popularity']
+                })
         else:
-            liked_tracks = []
-            i = 0 
+            offset = 0
             while True:
-                results = sp.current_user_saved_tracks(limit=50, offset=i*50)
-                if results['items'].__len__() > 0:
-                    for item in results['items']:
-                        track = item['track']
-                        liked_tracks.append({
-                            'name': track['name'],
-                            'artist': track['artists'][0]['name'],
-                            'album_image_url': track['album']['images'][0]['url'],
-                            'popularity': track['popularity']
-                        })
-                else: break
-                i += 1
+            # for i in range(2):
+                results = sp.current_user_saved_tracks(limit=50, offset=offset)
+                if not results['items']:
+                    break
+                for item in results['items']:
+                    track = item['track']
+                    liked_tracks.append({
+                        'name': track['name'],
+                        'artist': track['artists'][0]['name'],
+                        'album_image_url': track['album']['images'][0]['url'],
+                        'popularity': track['popularity']
+                    })
+                offset += 50
+                
         cache.set(cache_key, liked_tracks)
-    return liked_tracks
-
-def get_liked_tracks(sp, limit=50, offset=0):
-    user_id = session.get('user_id')
-    cache_key = f'liked_tracks_{user_id}_limit_{limit}_offset_{offset}'
     
-    liked_tracks = cache.get(cache_key)
-    
-    if not liked_tracks:
-        liked_tracks = []
-        results = sp.current_user_saved_tracks(limit=limit, offset=offset)
-        for item in results['items']:
-            track = item['track']
-            liked_tracks.append({
-                'name': track['name'],
-                'artist': track['artists'][0]['name'],
-                'album_image_url': track['album']['images'][0]['url'],
-                'popularity': track['popularity']
-            })
-        cache.set(cache_key, liked_tracks)
     return liked_tracks
 
 

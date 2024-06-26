@@ -31,30 +31,24 @@ def play_history():
     play_history = get_play_history(sp)
     return render_template('play_history.html', play_history=play_history)
 
-
-@main_bp.route('/full_liked_tracks')
+@main_bp.route('/liked_tracks')
 def full_liked_tracks():
     if 'token_info' not in session:
         return redirect(url_for('auth.login'))
 
     sp = get_spotify_client()
-    limit = 50
-    offset = int(request.args.get('offset', 0))
-    sort_by = request.args.get('sort_by', 'popularity')
+    liked_tracks = get_liked_tracks(sp)
     
-    liked_tracks = get_liked_tracks(sp, limit=limit, offset=offset)
+    for index, track in enumerate(liked_tracks):
+        track['index'] = index
+
+    sort_by = request.args.get('sort_by', 'index') 
+    reverse = request.args.get('order', 'asc') == 'desc'
     
-    if sort_by == 'name':
-        liked_tracks.sort(key=lambda x: x['name'])
-    elif sort_by == 'artist':
-        liked_tracks.sort(key=lambda x: x['artist'])
-    else:
-        liked_tracks.sort(key=lambda x: x['popularity'], reverse=True)
+    if sort_by in {'index', 'name', 'artist', 'popularity'}:
+        liked_tracks.sort(key=lambda x: x[sort_by], reverse=reverse)
     
-    return render_template('full_liked_tracks.html', liked_tracks=liked_tracks, current_offset=offset, sort_by=sort_by)
-
-
-
+    return render_template('liked_tracks.html', liked_tracks=liked_tracks)
 
 # Section for top artists and top tracks
 # region

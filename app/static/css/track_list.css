@@ -20,6 +20,9 @@
     font-size: 1.5em;
     font-weight: bold;
     margin-right: 0.5em;
+    width: 2.5em; 
+    text-align: center;
+    /* display: inline-block; */
 }
 
 .play-history-track-item:hover {

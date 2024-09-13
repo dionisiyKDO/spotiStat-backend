@@ -1,6 +1,5 @@
 import spotipy
 import pandas as pd
-import matplotlib.pyplot as plt
 from datetime import datetime
 
 from flask import session

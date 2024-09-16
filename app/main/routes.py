@@ -12,6 +12,7 @@ from app.utils.utils import *
 #         return render_template('index.html')
 #     return render_template('index.html')
 
+
 @main_bp.route('/results')
 def results():
     if 'token_info' not in session:
@@ -35,8 +36,11 @@ def full_liked_tracks():
     if 'token_info' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
 
+    limit = request.args.get('limit', None, type=int)
+    offset = request.args.get('offset', None, type=int)
+    
     sp = get_spotify_client()
-    liked_tracks = get_liked_tracks(sp)
+    liked_tracks = get_liked_tracks(sp, limit, offset)
     
     # Add index to each track
     for index, track in enumerate(liked_tracks):
@@ -76,6 +80,4 @@ def top_tracks():
     top_tracks = get_top_tracks(sp, time_range)
     
     return jsonify(top_tracks=top_tracks)
-
-
 # endregion

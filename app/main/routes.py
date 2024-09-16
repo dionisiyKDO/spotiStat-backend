@@ -81,3 +81,13 @@ def top_tracks():
     
     return jsonify(top_tracks=top_tracks)
 # endregion
+
+@main_bp.route('/tracks_by_year', methods=['GET'])
+def tracks_by_year():
+    if 'token_info' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    sp = get_spotify_client()
+    tracks_by_year = get_tracks_by_year(sp)
+    
+    return jsonify(tracks_by_year=tracks_by_year)

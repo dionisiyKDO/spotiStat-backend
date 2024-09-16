@@ -96,6 +96,27 @@ def get_top_tracks(sp, time_range='medium_term', limit=50):
         })
     return top_tracks
 
+def get_tracks_by_year(sp):
+    user_id = session.get('user_id')
+    cache_key = f'tracks_by_year_{user_id}'
+    
+    tracks_by_year = cache.get(cache_key)
+    
+    if not tracks_by_year:
+        tracks_by_year = __get_full_saved_tracks(sp, user_id)
+        tracks_by_year_count = {}
+        
+        # drop columns that are not needed in full_saved_tracks
+        # for d in tracks_by_year:
+        #     for key in ['added_at', 'name', 'artist', 'album_image_url', 'spotify_url', 'popularity']:
+        #         d.pop(key, None)
+        
+        for track in tracks_by_year:
+            release_year = track["release_date"].split("-")[0]  # Extract the year
+            tracks_by_year_count[release_year] = tracks_by_year_count.get(release_year, 0) + 1
+            
+        # cache.set(cache_key, tracks_by_year)
+    return tracks_by_year_count
 
 def __get_full_saved_tracks(sp, user_id):
     cache_key = f'full_saved_tracks_{user_id}'

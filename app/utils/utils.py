@@ -100,9 +100,9 @@ def get_tracks_by_year(sp):
     user_id = session.get('user_id')
     cache_key = f'tracks_by_year_{user_id}'
     
-    tracks_by_year = cache.get(cache_key)
+    tracks_by_year_count = cache.get(cache_key)
     
-    if not tracks_by_year:
+    if not tracks_by_year_count:
         tracks_by_year = __get_full_saved_tracks(sp, user_id)
         tracks_by_year_count = {}
         
@@ -114,9 +114,30 @@ def get_tracks_by_year(sp):
         for track in tracks_by_year:
             release_year = track["release_date"].split("-")[0]  # Extract the year
             tracks_by_year_count[release_year] = tracks_by_year_count.get(release_year, 0) + 1
-            
-        # cache.set(cache_key, tracks_by_year)
+    
+        # make "0: {'release_date': '2021', 'count': 1}" from "{'2021': 1}"    
+        tracks_by_year_count = [{'release_date': year, 'count': count} for year, count in tracks_by_year_count.items()]
+        
+        cache.set(cache_key, tracks_by_year_count)
+    
     return tracks_by_year_count
+
+def select_saved_tracks(sp, year = None):
+    user_id = session.get('user_id')
+    cache_key = f'search_saved_tracks_{user_id}{("_" + year) if year else ""}'
+    print(cache_key)
+    
+    results = cache.get(cache_key)
+    
+    if not results:
+        results = __get_full_saved_tracks(sp, user_id)
+        
+        if year:
+            results = [track for track in results if track['release_date'].split("-")[0] == year]
+        
+        cache.set(cache_key, results)
+    
+    return results
 
 def __get_full_saved_tracks(sp, user_id):
     cache_key = f'full_saved_tracks_{user_id}'

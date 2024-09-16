@@ -12,6 +12,17 @@ from app.utils.utils import *
 #         return render_template('index.html')
 #     return render_template('index.html')
 
+@main_bp.route('/search_saved_tracks', methods=['GET'])
+def search_saved_tracks():
+    if 'token_info' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    sp = get_spotify_client()
+    year = request.args.get("year")
+    
+    results = select_saved_tracks(sp, year)
+    
+    return jsonify(results=results)
 
 @main_bp.route('/results')
 def results():

@@ -37,7 +37,16 @@ def callback():
     session.clear()
     code = request.args.get('code')
     token_info = sp_oauth.get_access_token(code)
+    
+    # Use the access token to get user information
+    sp = spotipy.Spotify(auth=token_info['access_token'])
+    user_info = sp.current_user()
+    user_id = user_info['id']
+    
+    # Store token and user ID in session
     session['token_info'] = token_info
+    session['user_id'] = user_id
+    
     return redirect(f"http://localhost:5173/")
 
 # Logout route

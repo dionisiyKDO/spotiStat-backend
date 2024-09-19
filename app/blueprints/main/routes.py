@@ -1,16 +1,58 @@
-from flask import Blueprint, jsonify, render_template, request, session, redirect, url_for, send_file
+from flask import Blueprint, jsonify, render_template, request, session, redirect, url_for, send_file, current_app
 
 from . import main_bp
 
-from app.auth.routes import get_spotify_client
+from app.blueprints.auth.routes import get_spotify_client
 from app.utils.utils import *
 
+import pandas as pd
+from werkzeug.utils import secure_filename
+import os
 
 # @main_bp.route('/', methods=['GET', 'POST'])
 # def index():
 #     if 'token_info' not in session:
 #         return render_template('index.html')
 #     return render_template('index.html')
+
+@main_bp.route('/user_info')
+def user_info():
+    if 'token_info' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    sp = get_spotify_client()
+    user_info = sp.current_user()
+    
+    return jsonify(user_info=user_info)
+
+@main_bp.route('/import_history')
+def import_history():
+    if 'token_info' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    tmp = read_json_and_store_data(json_directory='./app/data/dionisiy')
+
+    return jsonify(tmp.to_dict())
+
+
+@main_bp.route('/get_record/<id>')
+def get_record(id):
+    # TODO: check if id is valid, there is an entry with that id
+    if 'token_info' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    tmp = db_session.query(StreamingHistory).get(id)
+    
+    return jsonify(tmp.to_dict())
+
+@main_bp.route('/process')
+def process_data():
+    # Retrieve stored dataframes
+    dataframes = current_app.config.get('DATAFRAMES', [])
+
+    # Render a template or perform processing
+    # For now, we will just return a success message
+    return "Data uploaded successfully. You can now process it."
 
 @main_bp.route('/search_saved_tracks', methods=['GET'])
 def search_saved_tracks():

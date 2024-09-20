@@ -124,16 +124,16 @@ def get_top_artists(sp, time_range='medium_term', limit=50):
 def get_top_tracks(sp, time_range='medium_term', limit=50):
     top_tracks = sp.current_user_top_tracks(time_range=time_range, limit=limit)
     
-    top_tracks = []
+    results = []
     for track in top_tracks['items']:
-        top_tracks.append({
+        results.append({
             'name': track['name'],
             'artist': track['artists'][0]['name'], # TODO: handle multiple artists
             'album_image_url': track['album']['images'][0]['url'],
             'spotify_url': track['album']['external_urls']['spotify'],
             'popularity': track['popularity']
         })
-    return top_tracks
+    return results
 
 # get tracks count by each year
 def get_tracks_by_year(sp):

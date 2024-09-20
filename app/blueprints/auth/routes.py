@@ -5,16 +5,16 @@ import spotipy
 from app.config import Config
 from . import auth_bp
 
+
 # Check session status route
-@auth_bp.route('/auth/session')
+@auth_bp.route('/session')
 def session_status():
-    print('fetching spotify client')
     token_info = session.get('token_info', None)
     logged_in = token_info is not None
     return jsonify({'logged_in': logged_in})
 
 # Route for initiating Spotify login
-@auth_bp.route('/auth/login')
+@auth_bp.route('/login')
 def login():
     sp_oauth = SpotifyOAuth(
         client_id=Config.SPOTIPY_CLIENT_ID,
@@ -23,7 +23,6 @@ def login():
         scope="user-library-read user-read-recently-played user-top-read"
     )
     auth_url = sp_oauth.get_authorize_url()
-    
     return redirect(auth_url)
 
 # Spotify OAuth callback after login
@@ -33,11 +32,11 @@ def callback():
         client_id=Config.SPOTIPY_CLIENT_ID,
         client_secret=Config.SPOTIPY_CLIENT_SECRET,
         redirect_uri=Config.SPOTIPY_REDIRECT_URI,
-        scope="user-library-read user-read-recently-played user-top-read"
+        scope="user-library-read user-read-recently-played user-top-read" # permissions needed for the app
     )
     session.clear()
-    code = request.args.get('code')
-    token_info = sp_oauth.get_access_token(code)
+    code = request.args.get('code') # Get the authorization code from the URL
+    token_info = sp_oauth.get_access_token(code) # Exchange the authorization code for an access token
     
     # Use the access token to get user information
     sp = spotipy.Spotify(auth=token_info['access_token'])
@@ -51,7 +50,7 @@ def callback():
     return redirect(f"http://localhost:5173/")
 
 # Logout route
-@auth_bp.route('/auth/logout')
+@auth_bp.route('/logout')
 def logout():
     session.clear()
     return redirect(f"http://localhost:5173/")

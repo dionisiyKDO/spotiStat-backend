@@ -1,11 +1,12 @@
 from sqlalchemy import Column, Boolean, Integer, String
-from app.database import Base
 from datetime import datetime, timezone
 import pytz
 
+from app.database import Base
+
 utc_plus_3 = pytz.timezone('Etc/GMT-3')
 
-# Define the model that matches the structure of the JSON records
+
 class StreamingHistory(Base):
     __tablename__ = 'streaming_history'
     # TODO: timestamp should be a datetime object

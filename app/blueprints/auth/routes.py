@@ -1,13 +1,14 @@
-from flask import Blueprint, redirect, request, session, url_for, jsonify
-from app.config import Config
-import spotipy
+from flask import redirect, request, session, jsonify
 from spotipy.oauth2 import SpotifyOAuth
+import spotipy
 
-auth_bp = Blueprint('auth', __name__)
+from app.config import Config
+from . import auth_bp
 
 # Check session status route
 @auth_bp.route('/auth/session')
 def session_status():
+    print('fetching spotify client')
     token_info = session.get('token_info', None)
     logged_in = token_info is not None
     return jsonify({'logged_in': logged_in})

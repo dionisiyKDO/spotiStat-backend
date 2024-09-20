@@ -1,4 +1,5 @@
 from flask import jsonify, session, current_app
+from sqlalchemy import func, desc
 import pandas as pd
 
 from app.utils.utils import *

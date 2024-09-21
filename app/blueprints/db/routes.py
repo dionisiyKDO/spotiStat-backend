@@ -48,7 +48,7 @@ def get_total_played(limit=10):
             func.sum(StreamingHistory.ms_played).label('total_ms_played')
         )
         .filter(StreamingHistory.master_metadata_track_name.isnot(None))  # Exclude None track names
-        .group_by(StreamingHistory.master_metadata_track_name)
+        .group_by(StreamingHistory.master_metadata_track_name, StreamingHistory.master_metadata_album_artist_name)
         .order_by(desc('total_ms_played'))
         .limit(limit) # how many top tracks to return
     )

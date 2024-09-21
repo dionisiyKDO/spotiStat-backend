@@ -13,9 +13,6 @@ MS_IN_HOUR = 1000 * 60 * 60
 @db_bp.route('/upload_history')
 # @db_bp.route('/upload_history', methods=['POST'])
 def upload_history():
-    if 'token_info' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
-
     # if not request.is_json:
     #     return jsonify({'error': 'Invalid input, expected JSON'}), 400
     # data = request.get_json()
@@ -31,9 +28,6 @@ def upload_history():
 # Get specific record from listening history
 @db_bp.route('/history/record/<int:id>', methods=['GET'])
 def get_streaming_record(id):
-    if 'token_info' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
-
     record = db_session.query(StreamingHistory).get(id)
     if not record:
         return jsonify({'error': f'Record with id {id} not found'}), 404
@@ -43,9 +37,6 @@ def get_streaming_record(id):
 # Route for getting top played tracks by time played
 @db_bp.route('/history/top_tracks_by_playtime', methods=['GET'])
 def get_top_played_tracks():
-    if 'token_info' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
-    
     sp = get_spotify_client()
 
     limit = request.args.get('limit', default=10, type=int)  # Read limit from query params
@@ -83,9 +74,6 @@ def get_top_played_tracks():
 # Route for getting top played tracks by time played
 @db_bp.route('/history/top_tracks_by_playcount', methods=['GET'])
 def get_top_tracks_by_playcount():
-    if 'token_info' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
-    
     sp = get_spotify_client()
 
     limit = request.args.get('limit', default=10, type=int)

@@ -172,7 +172,6 @@ def select_saved_tracks(sp, year = None):
         
         cache.set(cache_key, results)
     return results
-# endregion
 
 # read json files from pc and store them in db
 def read_json_and_store_data(json_directory):

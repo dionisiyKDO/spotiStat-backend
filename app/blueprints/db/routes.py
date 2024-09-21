@@ -2,6 +2,7 @@ from flask import jsonify, session, current_app
 from sqlalchemy import func, desc
 import pandas as pd
 
+from app.blueprints.auth.routes import get_spotify_client
 from app.utils.utils import *
 from . import db_bp
 
@@ -36,11 +37,14 @@ def get_total_played(limit=10):
     
     MS_IN_HOUR = 1000 * 60 * 60
     
+    sp = get_spotify_client()
+    
 
     query = ( # query for track name, artist and total ms played, grouped by track name to sum up total ms played, and order by total ms played descending
         db_session.query(
             StreamingHistory.master_metadata_track_name,
             StreamingHistory.master_metadata_album_artist_name,
+            StreamingHistory.spotify_track_uri,
             func.sum(StreamingHistory.ms_played).label('total_ms_played')
         )
         .filter(StreamingHistory.master_metadata_track_name.isnot(None))  # Exclude None track names
@@ -48,15 +52,19 @@ def get_total_played(limit=10):
         .order_by(desc('total_ms_played'))
         .limit(limit) # how many top tracks to return
     )
+    
+    enumerated_query = enumerate(query)
 
     # Convert the result into a dictionary
     track_playtime_dict = [ {
-            'track_name': track_name,
-            'track_artist_name': track_artist_name,
+            'index': index,
+            'name': track_name,
+            'artist': track_artist_name,
             'total_ms_played': total_ms_played,
-            'total_hours_played': total_ms_played / MS_IN_HOUR
+            'total_hours_played': total_ms_played / MS_IN_HOUR,
+            'album_image_url': sp.track(track_id=spotify_track_uri.replace("spotify:track:", ""))['album']['images'][0]['url']
         }
-        for track_name, track_artist_name, total_ms_played in query
+        for index, (track_name, track_artist_name, spotify_track_uri, total_ms_played) in enumerated_query
     ]
     
     return jsonify(track_playtime_dict)

@@ -6,6 +6,14 @@ from app.database import Base
 
 utc_plus_3 = pytz.timezone('Etc/GMT-3')
 
+# draft for future user profile table
+# class UserProfile(Base):
+#     __tablename__ = 'user_profiles'
+#     spotify_id = Column(String, primary_key=True)
+#     nickname = Column(String, unique=True)
+#     profile_folder = Column(String)
+#     def __repr__(self):
+#         return f'<UserProfile {self.spotify_id} - {self.nickname}>'
 
 class StreamingHistory(Base):
     __tablename__ = 'streaming_history'

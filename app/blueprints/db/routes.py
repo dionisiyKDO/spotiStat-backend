@@ -1,5 +1,5 @@
 from flask import jsonify, session, current_app, request
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, extract
 import pandas as pd
 
 from app.blueprints.auth.routes import get_spotify_client
@@ -107,3 +107,88 @@ def get_top_tracks_by_playcount():
     
     return jsonify(track_playcount_list)
 
+@db_bp.route('/history/track/<track_id>/stats', methods=['GET'])
+def get_track_stats(track_id):
+    # Strip the "spotify:track:" prefix from the URI for both queries
+    track_uri = f"spotify:track:{track_id}"
+    
+    # Query to get play count and total playtime (ms_played) per day for the track
+    play_counts = (
+        db_session.query(
+            func.date(StreamingHistory.ts).label('date'), 
+            func.count(StreamingHistory.ts).label('play_count'),
+            func.sum(StreamingHistory.ms_played).label('total_ms_played')  # Adding total playtime per day
+        )
+        .filter(StreamingHistory.spotify_track_uri == track_uri)
+        .group_by(func.date(StreamingHistory.ts))
+        .order_by(func.date(StreamingHistory.ts))
+        .all()
+    )
+
+    # Query to get total playtime (ms_played) and other interesting stats
+    track_stats = (
+        db_session.query(
+            func.sum(StreamingHistory.ms_played).label('total_ms_played'),
+            func.count(StreamingHistory.ts).label('total_plays'),
+            func.min(StreamingHistory.ts).label('first_played'),
+            func.max(StreamingHistory.ts).label('last_played'),
+            func.count(func.distinct(func.date(StreamingHistory.ts))).label('distinct_days_played')
+        )
+        .filter(StreamingHistory.spotify_track_uri == track_uri)
+        .one()
+    )
+    
+    # Error handling: If the track was never played, return an error response
+    if not track_stats.total_plays:
+        return jsonify({'error': 'No stats available for this track'}), 404
+
+    # Convert 'first_played' and 'last_played' to datetime objects if they are strings
+    first_played = (
+        datetime.strptime(track_stats.first_played, '%Y-%m-%dT%H:%M:%SZ')
+        if isinstance(track_stats.first_played, str) else track_stats.first_played
+    )
+    last_played = (
+        datetime.strptime(track_stats.last_played, '%Y-%m-%dT%H:%M:%SZ')
+        if isinstance(track_stats.last_played, str) else track_stats.last_played
+    )
+    
+    # Calculate additional stats
+    avg_playtime = track_stats.total_ms_played / track_stats.total_plays if track_stats.total_plays > 0 else 0
+    total_days_played = (last_played - first_played).days if first_played and last_played else 0
+    
+    # Query to get most frequent playtime (hour)
+    most_frequent_playtime = (
+        db_session.query(
+            extract('hour', StreamingHistory.ts).label('hour'),
+            func.count(StreamingHistory.ts).label('play_count')
+        )
+        .filter(StreamingHistory.spotify_track_uri == track_uri)
+        .group_by(extract('hour', StreamingHistory.ts))
+        .order_by(func.count(StreamingHistory.ts).desc())
+        .limit(1)
+        .one()
+    )
+
+    # Convert play_counts to a list of dictionaries with both play count and total playtime
+    timeline_data = [
+        {"date": str(play_count[0]), "play_count": play_count[1], "total_ms_played": play_count[2]}
+        for play_count in play_counts
+    ]
+
+    # Convert date times to ISO format strings for JSON output
+    first_played_str = first_played.strftime('%Y-%m-%d %H:%M:%S') if first_played else None
+    last_played_str = last_played.strftime('%Y-%m-%d %H:%M:%S') if last_played else None
+
+    return jsonify({
+        'track_id': track_id,
+        'timeline_data': timeline_data,
+        'total_ms_played': track_stats.total_ms_played,
+        'total_plays': track_stats.total_plays,
+        'distinct_days_played': track_stats.distinct_days_played,
+        'first_played': first_played_str,
+        'last_played': last_played_str,
+        'avg_playtime_per_play': avg_playtime,
+        'total_days_played': total_days_played,
+        'most_frequent_play_hour': most_frequent_playtime.hour if most_frequent_playtime else None,
+        'most_frequent_play_count': most_frequent_playtime.play_count if most_frequent_playtime else 0
+    })

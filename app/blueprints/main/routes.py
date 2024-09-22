@@ -26,6 +26,17 @@ def get_spotify_profile():
 
     return jsonify(user_info=user_info)
 
+@main_bp.route('/spotify/track_meta', methods=['GET'])
+@token_required
+def get_track_meta():
+    track_id = request.args.get('track_id', default='4DMKwE2E2iYDKY01C335Uw', type=str)
+    
+    sp = get_spotify_client()
+    track_meta = sp.track(track_id=track_id)
+
+    return jsonify(track_meta=track_meta)
+
+
 # SP API: Get saved tracks by filter, rn only filter by year, can support more filters
 @main_bp.route('/spotify/saved_tracks/filter', methods=['GET'])
 @token_required

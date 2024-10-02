@@ -36,7 +36,6 @@ def get_track_meta():
 
     return jsonify(track_meta=track_meta)
 
-
 # SP API: Get saved tracks by filter, rn only filter by year, can support more filters
 @main_bp.route('/spotify/saved_tracks/filter', methods=['GET'])
 @token_required

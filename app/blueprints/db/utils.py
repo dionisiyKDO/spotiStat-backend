@@ -1,17 +1,22 @@
 from flask import jsonify, session, current_app, request
-from sqlalchemy import func, desc, extract
+from sqlalchemy import func, desc, extract, case
 import pandas as pd
 
 from app.blueprints.auth.routes import get_spotify_client
 from app.utils.utils import *
 from . import db_bp
 
+MS_IN_DAY = 1000 * 60 * 60 * 24
 MS_IN_HOUR = 1000 * 60 * 60
+MS_IN_MINUTE = 1000 * 60
+
+# fetch records
+# region 
 
 @db_bp.route('/history/<int:limit>', methods=['GET']) # limit is the number of records to return, in url for dumbcheck purposes 
 def get_all_records(limit: int):
     ''' 
-    Retrieve the full listening history
+    Retrieve the listening history from head
         limit: number of records to return
     '''
     records = db_session.query(StreamingHistory).limit(limit).all()
@@ -28,6 +33,82 @@ def get_streaming_record(id: int):
         return jsonify({'error': f'Record with id {id} not found'}), 404
     
     return jsonify(record.to_dict())
+
+@db_bp.route('/history/artist/<string:artist_name>', methods=['GET'])
+def get_by_artist(artist_name: str):
+    '''
+    Retrieve all records filtered by artist name
+        artist_name: name of the artist to search for
+    '''
+    records = db_session.query(StreamingHistory).filter(
+        StreamingHistory.master_metadata_album_artist_name.ilike(f'%{artist_name}%')
+    ).all()
+    if not records:
+        return jsonify({'error': f'Records with artist name "{artist_name}" not found'}), 404
+    
+    return jsonify([record.to_dict() for record in records])
+
+# endregion
+
+# analyze data
+# region
+
+@db_bp.route('/history/total-listening-time', methods=['GET'])
+def get_total_listening_time():
+    ''' Display the total listening time in ms/min/hour/day '''
+    total_ms = db_session.query(func.sum(StreamingHistory.ms_played)).scalar()
+    total_minutes = total_ms / MS_IN_MINUTE
+    total_hours = total_ms / MS_IN_HOUR
+    total_days = total_ms / MS_IN_DAY
+    
+    return jsonify({
+        'total_listening_ms': total_ms,
+        'total_listening_minutes': total_minutes,
+        'total_listening_hours': total_hours,
+        'total_listening_days': total_days,
+        })
+
+@db_bp.route('/history/platform-stats', methods=['GET'])
+def get_platform_stats():
+    ''' Display the total listening time and number of plays for each platform '''
+    platform_stats = db_session.query(
+        StreamingHistory.platform,
+        func.count(StreamingHistory.platform).label('play_count'),
+        func.sum(StreamingHistory.ms_played).label('total_ms_played'),
+    ).group_by(StreamingHistory.platform).all()
+
+    grouped_stats = {
+        'Linux': {'play_count': 0, 'total_ms_played': 0},
+        'Windows': {'play_count': 0, 'total_ms_played': 0},
+        'Android': {'play_count': 0, 'total_ms_played': 0},
+        'Other': {'play_count': 0, 'total_ms_played': 0}
+    }
+
+    # Iterate over the results to group by platform category
+    for platform in platform_stats:
+        platform_name = platform[0].lower()  # Normalize to lowercase for matching
+
+        if 'linux' in platform_name:
+            grouped_stats['Linux']['play_count'] += platform[1]
+            grouped_stats['Linux']['total_ms_played'] += platform[2]
+        elif 'windows' in platform_name:
+            grouped_stats['Windows']['play_count'] += platform[1]
+            grouped_stats['Windows']['total_ms_played'] += platform[2]
+        elif 'android' in platform_name:
+            grouped_stats['Android']['play_count'] += platform[1]
+            grouped_stats['Android']['total_ms_played'] += platform[2]
+        else:
+            grouped_stats['Other']['play_count'] += platform[1]
+            grouped_stats['Other']['total_ms_played'] += platform[2]
+
+    # Prepare the response in the desired format
+    return jsonify([{
+        'platform': platform,
+        'play_count': stats['play_count'],
+        'total_ms_played': stats['total_ms_played']
+    } for platform, stats in grouped_stats.items()])
+
+# endregion
 
 @db_bp.route('/history/top-tracks', methods=['GET'])
 def get_top_tracks():

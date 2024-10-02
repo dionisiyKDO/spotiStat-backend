@@ -1,5 +1,6 @@
 from flask import jsonify, session, current_app, request
-from sqlalchemy import func, desc, extract, case
+from sqlalchemy import func, desc, extract, case, distinct
+from datetime import datetime
 import pandas as pd
 
 from app.blueprints.auth.routes import get_spotify_client
@@ -126,6 +127,7 @@ def get_platform_stats():
 
 @db_bp.route('/history/most-skipped-tracks', methods=['GET'])
 def get_most_skipped_tracks():
+    ''' Get the most skipped tracks '''
     limit = request.args.get('limit', 10, type=int)
     skipped_tracks = db_session.query(
         StreamingHistory.master_metadata_track_name,
@@ -144,6 +146,7 @@ def get_most_skipped_tracks():
 
 @db_bp.route('/history/skip-stats', methods=['GET'])
 def get_skip_stats():
+    ''' Get the total number of plays and the number of skipped tracks + skip rate '''
     total_plays = db_session.query(func.count(StreamingHistory.id)).scalar()
     skipped_tracks = db_session.query(func.count(StreamingHistory.id)).filter_by(skipped=True).scalar()
     return jsonify({
@@ -155,6 +158,7 @@ def get_skip_stats():
 
 @db_bp.route('/history/end-reasons', methods=['GET'])
 def get_end_reasons():
+    ''' Get the number of times each end reason occurred '''
     end_reasons = db_session.query(
         StreamingHistory.reason_end, 
         func.count(StreamingHistory.reason_end).label('count')
@@ -165,11 +169,17 @@ def get_end_reasons():
         'count': reason[1]
     } for reason in end_reasons])
 
-
-from datetime import datetime
+@db_bp.route('/history/unique-tracks-count', methods=['GET'])
+def get_unique_tracks_count():
+    ''' Get the number of unique tracks listened to '''
+    unique_tracks = db_session.query(
+        func.count(distinct(StreamingHistory.spotify_track_uri)).label('unique_tracks_count')
+    ).scalar()
+    return jsonify({'unique_tracks_count': unique_tracks})
 
 @db_bp.route('/history/sessions', methods=['GET'])
 def get_listening_sessions():
+    ''' Get listening sessions and their statistics '''
     time_gap = request.args.get('gap', 30, type=int)  # Gap in minutes to separate sessions
     time_gap_ms = time_gap * 60000
 
@@ -246,10 +256,6 @@ def get_listening_sessions():
 
     return jsonify(result)
 
-
-
-
-
 # endregion
 
 # Trends
@@ -257,6 +263,7 @@ def get_listening_sessions():
 
 @db_bp.route('/history/hourly-trends', methods=['GET'])
 def get_hourly_trends():
+    ''' Get hourly listening statistics '''
     hourly_trends = db_session.query(
         func.extract('hour', StreamingHistory.ts).label('hour'),
         func.count(StreamingHistory.id).label('play_count'),
@@ -271,6 +278,7 @@ def get_hourly_trends():
 
 @db_bp.route('/history/weekly-trends', methods=['GET'])
 def get_weekly_trends():
+    ''' Get weekly listening statistics '''
     daily_trends = db_session.query(
         func.strftime('%w', StreamingHistory.ts).label('day_of_week'),  # Get day of the week (0 = Sunday, ..., 6 = Saturday)
         func.count(StreamingHistory.id).label('play_count'),
@@ -289,6 +297,7 @@ def get_weekly_trends():
 
 @db_bp.route('/history/daily-trends', methods=['GET'])
 def get_daily_trends():
+    ''' Get daily listening statistics '''
     daily_trends = db_session.query(
         func.strftime('%Y-%m-%d', StreamingHistory.ts).label('day'),  # Use strftime for SQLite date formatting
         func.count(StreamingHistory.id).label('play_count'),

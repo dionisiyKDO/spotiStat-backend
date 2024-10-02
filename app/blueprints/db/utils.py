@@ -108,6 +108,53 @@ def get_platform_stats():
         'total_ms_played': stats['total_ms_played']
     } for platform, stats in grouped_stats.items()])
 
+@db_bp.route('/history/skip-stats', methods=['GET'])
+def get_skip_stats():
+    total_plays = db_session.query(func.count(StreamingHistory.id)).scalar()
+    skipped_tracks = db_session.query(func.count(StreamingHistory.id)).filter_by(skipped=True).scalar()
+    return jsonify({
+        'total_plays': total_plays,
+        'skipped_tracks': skipped_tracks,
+        'skip_rate': skipped_tracks / total_plays if total_plays > 0 else 0,
+        'skip_percentage': skipped_tracks / total_plays * 100 if total_plays > 0 else 0
+    })
+
+@db_bp.route('/history/weekly-trends', methods=['GET'])
+def get_weekly_trends():
+    daily_trends = db_session.query(
+        func.strftime('%w', StreamingHistory.ts).label('day_of_week'),  # Get day of the week (0 = Sunday, ..., 6 = Saturday)
+        func.count(StreamingHistory.id).label('play_count'),
+        func.sum(StreamingHistory.ms_played).label('total_ms_played')
+    ).group_by(func.strftime('%w', StreamingHistory.ts)
+    ).order_by(func.strftime('%w', StreamingHistory.ts)
+    ).all()
+
+    days_of_week = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+    return jsonify([{
+        'day_of_week': days_of_week[int(trend.day_of_week)],  # Convert day number to a readable day name
+        'play_count': trend.play_count,
+        'total_ms_played': trend.total_ms_played
+    } for trend in daily_trends])
+
+
+@db_bp.route('/history/daily-trends', methods=['GET'])
+def get_daily_trends():
+    daily_trends = db_session.query(
+        func.strftime('%Y-%m-%d', StreamingHistory.ts).label('day'),  # Use strftime for SQLite date formatting
+        func.count(StreamingHistory.id).label('play_count'),
+        func.sum(StreamingHistory.ms_played).label('total_ms_played')
+    ).group_by(func.strftime('%Y-%m-%d', StreamingHistory.ts)
+    ).order_by(func.strftime('%Y-%m-%d', StreamingHistory.ts)
+    ).all()
+
+    return jsonify([{
+        'day': trend.day,  # The day is already formatted as a string
+        'play_count': trend.play_count,
+        'total_ms_played': trend.total_ms_played
+    } for trend in daily_trends])
+
+
 # endregion
 
 @db_bp.route('/history/top-tracks', methods=['GET'])

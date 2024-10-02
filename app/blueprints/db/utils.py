@@ -10,6 +10,9 @@ MS_IN_DAY = 1000 * 60 * 60 * 24
 MS_IN_HOUR = 1000 * 60 * 60
 MS_IN_MINUTE = 1000 * 60
 
+# TODO: spotify uri to url util function
+
+
 # fetch records
 # region 
 
@@ -46,6 +49,19 @@ def get_by_artist(artist_name: str):
     if not records:
         return jsonify({'error': f'Records with artist name "{artist_name}" not found'}), 404
     
+    return jsonify([record.to_dict() for record in records])
+
+@db_bp.route('/history/album/<string:album_name>', methods=['GET'])
+def get_by_album(album_name):
+    '''
+    Retrieve all records filtered by album name
+        album_name: name of the album to search for
+    '''
+    records = db_session.query(StreamingHistory).filter(
+        StreamingHistory.master_metadata_album_album_name.ilike(f'%{album_name}%')
+    ).all()
+    if not records:
+        return jsonify({'error': f'Records with album name "{album_name}" not found'}), 404
     return jsonify([record.to_dict() for record in records])
 
 # endregion
@@ -108,6 +124,24 @@ def get_platform_stats():
         'total_ms_played': stats['total_ms_played']
     } for platform, stats in grouped_stats.items()])
 
+@db_bp.route('/history/most-skipped-tracks', methods=['GET'])
+def get_most_skipped_tracks():
+    limit = request.args.get('limit', 10, type=int)
+    skipped_tracks = db_session.query(
+        StreamingHistory.master_metadata_track_name,
+        StreamingHistory.master_metadata_album_artist_name,
+        func.count(StreamingHistory.id).label('skip_count') # first applies the filter, then counts the number of rows by id
+    ).filter_by(skipped=True).group_by(
+        StreamingHistory.master_metadata_track_name,
+        StreamingHistory.master_metadata_album_artist_name
+    ).order_by(desc('skip_count')).limit(limit).all()
+
+    return jsonify([{
+        'track_name': track[0],
+        'artist': track[1],
+        'skip_count': track[2]
+    } for track in skipped_tracks])
+
 @db_bp.route('/history/skip-stats', methods=['GET'])
 def get_skip_stats():
     total_plays = db_session.query(func.count(StreamingHistory.id)).scalar()
@@ -118,6 +152,122 @@ def get_skip_stats():
         'skip_rate': skipped_tracks / total_plays if total_plays > 0 else 0,
         'skip_percentage': skipped_tracks / total_plays * 100 if total_plays > 0 else 0
     })
+
+@db_bp.route('/history/end-reasons', methods=['GET'])
+def get_end_reasons():
+    end_reasons = db_session.query(
+        StreamingHistory.reason_end, 
+        func.count(StreamingHistory.reason_end).label('count')
+    ).group_by(StreamingHistory.reason_end).all()
+    
+    return jsonify([{
+        'reason_end': reason[0],
+        'count': reason[1]
+    } for reason in end_reasons])
+
+
+from datetime import datetime
+
+@db_bp.route('/history/sessions', methods=['GET'])
+def get_listening_sessions():
+    time_gap = request.args.get('gap', 30, type=int)  # Gap in minutes to separate sessions
+    time_gap_ms = time_gap * 60000
+
+    # Query to get tracks in order of timestamps
+    sessions = db_session.query(
+        StreamingHistory.id,
+        StreamingHistory.master_metadata_track_name,
+        StreamingHistory.master_metadata_album_artist_name,
+        StreamingHistory.spotify_track_uri,
+        StreamingHistory.ms_played,  # Add ms_played for session duration
+        StreamingHistory.ts
+    ).order_by(StreamingHistory.ts).all()
+
+    result = []
+    session = []
+    previous_ts = None
+    session_start_time = None
+    total_ms_played = 0  # Track total playtime for each session
+
+    for record in sessions:
+        current_ts = record.ts
+
+        # Convert current timestamp to datetime if it's a string
+        if isinstance(current_ts, str):
+            current_ts = datetime.strptime(current_ts, '%Y-%m-%dT%H:%M:%SZ')
+
+        if previous_ts:
+            # Calculate time difference in milliseconds between consecutive tracks
+            time_diff_ms = (current_ts - previous_ts).total_seconds() * 1000
+
+            # If time difference is greater than the specified gap, end the current session
+            if time_diff_ms > time_gap_ms:
+                if session:
+                    # Append session details to the result before starting a new session
+                    result.append({
+                        'session_start': session_start_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                        'session_end': previous_ts.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                        'total_tracks': len(session),
+                        'total_ms_played': total_ms_played,
+                        'tracks': session
+                    })
+                # Reset session info for a new session
+                session = []
+                total_ms_played = 0
+
+        # If starting a new session, set the session start time
+        if not session:
+            session_start_time = current_ts
+
+        # Add the current track to the session
+        session.append({
+            'track_name': record.master_metadata_track_name,
+            'track_artist': record.master_metadata_album_artist_name,
+            'track_uri': record.spotify_track_uri,
+            'timestamp': current_ts.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'ms_played': record.ms_played
+        })
+
+        # Increment total ms played for the session
+        total_ms_played += record.ms_played
+
+        # Update previous timestamp
+        previous_ts = current_ts
+
+    # Append the last session if it exists
+    if session:
+        result.append({
+            'session_start': session_start_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'session_end': previous_ts.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'total_tracks': len(session),
+            'total_ms_played': total_ms_played,
+            'tracks': session
+        })
+
+    return jsonify(result)
+
+
+
+
+
+# endregion
+
+# Trends
+# region
+
+@db_bp.route('/history/hourly-trends', methods=['GET'])
+def get_hourly_trends():
+    hourly_trends = db_session.query(
+        func.extract('hour', StreamingHistory.ts).label('hour'),
+        func.count(StreamingHistory.id).label('play_count'),
+        func.sum(StreamingHistory.ms_played).label('total_ms_played')
+    ).group_by('hour').order_by('hour').all()
+
+    return jsonify([{
+        'hour': int(trend.hour),
+        'play_count': trend.play_count,
+        'total_ms_played': trend.total_ms_played
+    } for trend in hourly_trends])
 
 @db_bp.route('/history/weekly-trends', methods=['GET'])
 def get_weekly_trends():
@@ -137,7 +287,6 @@ def get_weekly_trends():
         'total_ms_played': trend.total_ms_played
     } for trend in daily_trends])
 
-
 @db_bp.route('/history/daily-trends', methods=['GET'])
 def get_daily_trends():
     daily_trends = db_session.query(
@@ -153,7 +302,6 @@ def get_daily_trends():
         'play_count': trend.play_count,
         'total_ms_played': trend.total_ms_played
     } for trend in daily_trends])
-
 
 # endregion
 

@@ -6,6 +6,26 @@ from app.blueprints.auth.routes import get_spotify_client
 from app.utils.utils import *
 from . import db_bp
 
+
+@db_bp.route('/check_history')
+def check_history():
+    account_id = request.args.get('account_id')
+
+    if not os.path.exists(f"app/data/{account_id}"):
+        return jsonify({'error': 'No history found for this account'}), 404
+    else:
+        return jsonify({'message': 'History found for this account'})
+
+
+
+
+
+
+
+
+
+
+
 MS_IN_HOUR = 1000 * 60 * 60
 
 # NOW it is route for importing json files from pc, and storing them in sqllite db

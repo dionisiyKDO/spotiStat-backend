@@ -4,6 +4,7 @@ import os
 
 from app.blueprints.auth.routes import get_spotify_client
 from app.utils.utils import *
+from .utils import *
 from . import main_bp
 
 

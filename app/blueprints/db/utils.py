@@ -313,7 +313,7 @@ def get_daily_trends():
     } for trend in daily_trends])
 
 # endregion
-
+# TODO: add year sorting
 @db_bp.route('/history/top-tracks', methods=['GET'])
 def get_top_tracks():
     '''

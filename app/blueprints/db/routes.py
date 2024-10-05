@@ -24,8 +24,6 @@ def check_history():
 
 
 
-
-
 MS_IN_HOUR = 1000 * 60 * 60
 
 # NOW it is route for importing json files from pc, and storing them in sqllite db
@@ -51,6 +49,7 @@ def get_track_stats(track_id):
     track_uri = f"spotify:track:{track_id}"
     
     # Query to get play count and total playtime (ms_played) per day for the track
+        
     play_counts = (
         db_session.query(
             func.date(StreamingHistory.ts).label('date'), 
@@ -61,6 +60,15 @@ def get_track_stats(track_id):
         .group_by(func.date(StreamingHistory.ts))
         .order_by(func.date(StreamingHistory.ts))
         .all()
+        # db_session.query(
+        #     func.date(StreamingHistory.ts).label('date'), 
+        #     func.count(StreamingHistory.ts).label('play_count'),
+        #     func.sum(StreamingHistory.ms_played).label('total_ms_played')  # Adding total playtime per day
+        # )
+        # .filter(StreamingHistory.master_metadata_track_name.ilike(f'%{track_id}%'))
+        # .group_by(func.date(StreamingHistory.ts))
+        # .order_by(func.date(StreamingHistory.ts))
+        # .all()
     )
 
     # Query to get total playtime (ms_played) and other interesting stats
@@ -264,80 +272,3 @@ def get_top_artists():
         'min_playtime_hours': min_playtime_hours,
         'artists': top_artists_data
     })
-
-
-
-
-
-# TODO DELETE: Route for getting top played tracks by time played
-@db_bp.route('/history/top_tracks_by_playtime', methods=['GET'])
-def get_top_played_tracks():
-    sp = get_spotify_client()
-
-    limit = request.args.get('limit', default=10, type=int)  # Read limit from query params
-
-    query = ( # query for track name, artist and total ms played, grouped by track name to sum up total ms played, and order by total ms played descending
-        db_session.query(
-            StreamingHistory.master_metadata_track_name,
-            StreamingHistory.master_metadata_album_artist_name,
-            StreamingHistory.spotify_track_uri,
-            func.sum(StreamingHistory.ms_played).label('total_ms_played')
-        )
-        .filter(StreamingHistory.master_metadata_track_name.isnot(None))
-        .group_by(StreamingHistory.master_metadata_track_name, StreamingHistory.master_metadata_album_artist_name)
-        .order_by(desc('total_ms_played'))
-        .limit(limit) # how many top tracks to return
-    )
-    
-    enumerated_query = enumerate(query)
-    
-    # Convert the result into a dictionarys
-    track_playtime_list = [
-        {
-            'index': index,
-            'name': track_name,
-            'artist': track_artist_name,
-            'total_ms_played': total_ms_played,
-            'total_hours_played': total_ms_played / MS_IN_HOUR,
-            'album_image_url': sp.track(track_id=spotify_track_uri.replace("spotify:track:", ""))['album']['images'][0]['url']
-        }
-        for index, (track_name, track_artist_name, spotify_track_uri, total_ms_played) in enumerated_query
-    ]
-    
-    return jsonify(track_playtime_list)
-
-# TODO DELETE: Route for getting top played tracks by time played
-@db_bp.route('/history/top_tracks_by_playcount', methods=['GET'])
-def get_top_tracks_by_playcount():
-    sp = get_spotify_client()
-
-    limit = request.args.get('limit', default=10, type=int)
-
-    query = ( # query for track name, artist and total ms played, grouped by track name to sum up total ms played, and order by total ms played descending
-        db_session.query(
-            StreamingHistory.master_metadata_track_name,
-            StreamingHistory.master_metadata_album_artist_name,
-            StreamingHistory.spotify_track_uri,
-            func.count(StreamingHistory.ts).label('count_of_plays')
-        )
-        .filter(StreamingHistory.master_metadata_track_name.isnot(None))  # Exclude None track names
-        .group_by(StreamingHistory.master_metadata_track_name, StreamingHistory.master_metadata_album_artist_name)
-        .order_by(desc('count_of_plays'))
-        .limit(limit) # how many top tracks to return
-    )
-    
-    enumerated_query = enumerate(query)
-    
-    # Convert the result into a dictionarys
-    track_playcount_list = [
-        {
-            'index': index,
-            'name': track_name,
-            'artist': track_artist_name,
-            'count_of_plays': count_of_plays,
-            'album_image_url': sp.track(track_id=spotify_track_uri.replace("spotify:track:", ""))['album']['images'][0]['url']
-        }
-        for index, (track_name, track_artist_name, spotify_track_uri, count_of_plays) in enumerated_query
-    ]
-    
-    return jsonify(track_playcount_list)

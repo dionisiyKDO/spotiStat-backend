@@ -11,3 +11,5 @@ class Config:
     SPOTIPY_REDIRECT_URI = os.getenv('SPOTIPY_REDIRECT_URI')
     SQLALCHEMY_DATABASE_URI = 'sqlite:///app/data/streaming_history.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    CACHE_DEFAULT_TIMEOUT = 1200  # 20 minutes
+    str_datetime_format = '%Y-%m-%dT%H:%M:%S.%fZ'

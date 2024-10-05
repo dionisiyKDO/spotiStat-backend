@@ -14,7 +14,7 @@ class User(Base):
     custom_id = Column(String, default=None, unique=True)
     display_name = Column(String, unique=True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<User {self.spotify_user_id} - {self.display_name}>'
 
 class StreamingHistory(Base):

@@ -313,6 +313,8 @@ def get_daily_trends():
     } for trend in daily_trends])
 
 # endregion
+
+# endregion
 # TODO: add year sorting
 @db_bp.route('/history/top-tracks', methods=['GET'])
 def get_top_tracks():
@@ -321,14 +323,25 @@ def get_top_tracks():
     args:
         limit: number of records to return, default - 10
         sort_by: field to sort by, either 'play_count' or default 'total_ms_played'
+        year: filter tracks by a specific year
+        month: filter tracks by a specific month (1-12)
+        date: filter tracks by a specific date (format: YYYY-MM-DD)
+        artist: filter tracks by a specific artist name
     '''
     limit   = request.args.get('limit', 10, type=int)
     sort_by = request.args.get('sort_by', 'total_ms_played', type=str)
+    year    = request.args.get('year', type=int)
+    month   = request.args.get('month', type=int)
+    date    = request.args.get('date', type=str)
+    artist  = request.args.get('artist', type=str)
+
     sp = get_spotify_client()
     
+    # Sort by total listening time or play count
     sort_by = 'total_ms_played' if sort_by == 'total_ms_played' else 'play_count'
-    
-    top_tracks = db_session.query(
+
+    # Base query
+    query = db_session.query(
         StreamingHistory.master_metadata_track_name,
         StreamingHistory.master_metadata_album_artist_name,
         func.count(StreamingHistory.master_metadata_track_name).label('play_count'),
@@ -336,16 +349,77 @@ def get_top_tracks():
         StreamingHistory.spotify_track_uri,
     ).filter(
         StreamingHistory.master_metadata_track_name.isnot(None)
-    ).group_by(
+    )
+
+    # Apply filters
+    if year:
+        query = query.filter(extract('year', StreamingHistory.ts) == year)
+
+    if month:
+        query = query.filter(extract('month', StreamingHistory.ts) == month)
+
+    if date:
+        try:
+            date_obj = datetime.strptime(date, '%Y-%m-%d')
+            query = query.filter(extract('year', StreamingHistory.ts) == date_obj.year,
+                                 extract('month', StreamingHistory.ts) == date_obj.month,
+                                 extract('day', StreamingHistory.ts) == date_obj.day)
+        except ValueError:
+            return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
+
+    if artist:
+        query = query.filter(StreamingHistory.master_metadata_album_artist_name.ilike(f"%{artist}%"))
+
+    # Group, order, and limit the query
+    top_tracks = query.group_by(
         StreamingHistory.master_metadata_track_name, 
         StreamingHistory.master_metadata_album_artist_name
     ).order_by(desc(sort_by)).limit(limit).all()
 
+    # Fetch album image from Spotify API and prepare the response
     return jsonify([{
         'index': index,
         'track_name': track[0],
         'artist': track[1],
         'play_count': track[2],
         'total_ms_played': track[3],
-        'album_image_url': sp.track(track_id=track[4].replace("spotify:track:", ""))['album']['images'][0]['url']
-    } for index,track in enumerate(top_tracks)])
+        'album_image_url': sp.track(track_id=track[4].replace("spotify:track:", ""))['album']['images'][0]['url'],
+        'spotify_url': sp.track(track_id=track[4].replace("spotify:track:", ""))['album']['external_urls']['spotify']
+    } for index, track in enumerate(top_tracks)])
+
+
+# @db_bp.route('/history/top-tracks', methods=['GET'])
+# def get_top_tracks():
+#     '''
+#     Get the top N tracks by play count or total listening time for a user\n
+#     args:
+#         limit: number of records to return, default - 10
+#         sort_by: field to sort by, either 'play_count' or default 'total_ms_played'
+#     '''
+#     limit   = request.args.get('limit', 10, type=int)
+#     sort_by = request.args.get('sort_by', 'total_ms_played', type=str)
+#     sp = get_spotify_client()
+    
+#     sort_by = 'total_ms_played' if sort_by == 'total_ms_played' else 'play_count'
+    
+#     top_tracks = db_session.query(
+#         StreamingHistory.master_metadata_track_name,
+#         StreamingHistory.master_metadata_album_artist_name,
+#         func.count(StreamingHistory.master_metadata_track_name).label('play_count'),
+#         func.sum(StreamingHistory.ms_played).label('total_ms_played'),
+#         StreamingHistory.spotify_track_uri,
+#     ).filter(
+#         StreamingHistory.master_metadata_track_name.isnot(None)
+#     ).group_by(
+#         StreamingHistory.master_metadata_track_name, 
+#         StreamingHistory.master_metadata_album_artist_name
+#     ).order_by(desc(sort_by)).limit(limit).all()
+
+#     return jsonify([{
+#         'index': index,
+#         'track_name': track[0],
+#         'artist': track[1],
+#         'play_count': track[2],
+#         'total_ms_played': track[3],
+#         'album_image_url': sp.track(track_id=track[4].replace("spotify:track:", ""))['album']['images'][0]['url']
+#     } for index,track in enumerate(top_tracks)])

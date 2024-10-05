@@ -272,3 +272,48 @@ def get_top_artists():
         'min_playtime_hours': min_playtime_hours,
         'artists': top_artists_data
     })
+
+# Route: Fetch tracks played more than {limit_count} times or {limit_play} milliseconds
+@db_bp.route('/history/played-tracks', methods=['GET'])
+def fetch_played_tracks():
+    """
+    Fetches tracks that were played more than {limit_count} times 
+    or {limit_play} milliseconds in total.
+
+    Example: /played-tracks?limit_count=5&limit_play=100000
+    """
+    limit_count = request.args.get('limit_count', 0, type=int)  # Default to 0 if not provided
+    limit_play = request.args.get('limit_play', 0, type=int)  # Default to 0 if not provided
+    
+    # Fetch tracks from StreamingHistory model where play count or total playtime exceeds the given limits
+    play_counts = (
+        db_session.query(
+            StreamingHistory.master_metadata_track_name.label('track_name'),
+            StreamingHistory.master_metadata_album_artist_name.label('artist_name'),
+            StreamingHistory.spotify_track_uri.label('spotify_track_uri'),
+            func.count(StreamingHistory.ts).label('play_count'),
+            func.sum(StreamingHistory.ms_played).label('total_ms_played')
+        )
+        .filter(StreamingHistory.spotify_track_uri != None)
+        .group_by(StreamingHistory.spotify_track_uri, StreamingHistory.master_metadata_track_name)
+        .having(
+            func.count(StreamingHistory.ts) > limit_count
+        )
+        .having(
+            func.sum(StreamingHistory.ms_played) > limit_play
+        )
+        .all()
+    )
+    
+    # Convert results to a list of dictionaries
+    played_tracks = [
+        {
+            'track_name': track.track_name,
+            'artist': track.artist_name,
+            'spotify_track_uri': track.spotify_track_uri,
+            'play_count': track.play_count,
+            'total_ms_played': track.total_ms_played
+        } for track in play_counts
+    ]
+    
+    return jsonify(played_tracks=played_tracks)

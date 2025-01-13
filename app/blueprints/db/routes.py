@@ -280,40 +280,73 @@ def fetch_played_tracks():
     Fetches tracks that were played more than {limit_count} times 
     or {limit_play} milliseconds in total.
 
-    Example: /played-tracks?limit_count=5&limit_play=100000
+    You can group the results by:
+    - Artist only
+    - Artist and track name
+
+    Example: /played-tracks?limit_count=5&limit_play=100000&group_by=artist
+             /played-tracks?limit_count=5&limit_play=100000&group_by=artist,track
     """
     limit_count = request.args.get('limit_count', 0, type=int)  # Default to 0 if not provided
     limit_play = request.args.get('limit_play', 0, type=int)  # Default to 0 if not provided
-    
-    # Fetch tracks from StreamingHistory model where play count or total playtime exceeds the given limits
-    play_counts = (
-        db_session.query(
-            StreamingHistory.master_metadata_track_name.label('track_name'),
-            StreamingHistory.master_metadata_album_artist_name.label('artist_name'),
-            StreamingHistory.spotify_track_uri.label('spotify_track_uri'),
-            func.count(StreamingHistory.ts).label('play_count'),
-            func.sum(StreamingHistory.ms_played).label('total_ms_played')
-        )
-        .filter(StreamingHistory.spotify_track_uri != None)
-        .group_by(StreamingHistory.spotify_track_uri, StreamingHistory.master_metadata_track_name)
-        .having(
-            func.count(StreamingHistory.ts) > limit_count
-        )
-        .having(
-            func.sum(StreamingHistory.ms_played) > limit_play
-        )
-        .all()
+    group_by = request.args.get('group_by', 'artist,track', type=str)  # Default to 'artist,track'
+
+    # Parse group_by parameter
+    group_by_artist = 'artist' in group_by.lower()
+    group_by_track = 'track' in group_by.lower()
+
+    # Base query with required fields
+    query = db_session.query(
+        StreamingHistory.master_metadata_album_artist_name.label('artist_name'),
+        func.count(StreamingHistory.ts).label('play_count'),
+        func.sum(StreamingHistory.ms_played).label('total_ms_played')
     )
-    
+
+    # Add track name and Spotify URI if grouping by track
+    if group_by_track:
+        query = query.add_columns(
+            StreamingHistory.master_metadata_track_name.label('track_name'),
+            StreamingHistory.spotify_track_uri.label('spotify_track_uri')
+        )
+
+    # Apply filters and grouping based on group_by parameters
+    query = query.filter(StreamingHistory.spotify_track_uri.isnot(None))
+
+    # Group by artist and/or track
+    if group_by_artist and group_by_track:
+        query = query.group_by(
+            StreamingHistory.master_metadata_album_artist_name,
+            StreamingHistory.master_metadata_track_name,
+            StreamingHistory.spotify_track_uri
+        )
+    elif group_by_artist:
+        query = query.group_by(
+            StreamingHistory.master_metadata_album_artist_name
+        )
+
+    # Apply the having clause for play count and play time limits
+    query = query.having(
+        func.count(StreamingHistory.ts) > limit_count
+    ).having(
+        func.sum(StreamingHistory.ms_played) > limit_play
+    )
+
+    # Execute the query and get results
+    play_counts = query.all()
+
     # Convert results to a list of dictionaries
-    played_tracks = [
-        {
-            'track_name': track.track_name,
+    played_tracks = []
+    for track in play_counts:
+        track_data = {
             'artist': track.artist_name,
-            'spotify_track_uri': track.spotify_track_uri,
             'play_count': track.play_count,
-            'total_ms_played': track.total_ms_played
-        } for track in play_counts
-    ]
-    
+            'total_ms_played': track.total_ms_played,
+        }
+        if group_by_track:
+            track_data.update({
+                'track_name': track.track_name,
+                'spotify_track_uri': track.spotify_track_uri
+            })
+        played_tracks.append(track_data)
+
     return jsonify(played_tracks=played_tracks)

@@ -132,17 +132,23 @@ def get_most_skipped_tracks():
     skipped_tracks = db_session.query(
         StreamingHistory.master_metadata_track_name,
         StreamingHistory.master_metadata_album_artist_name,
-        func.count(StreamingHistory.id).label('skip_count') # first applies the filter, then counts the number of rows by id
+        func.count(StreamingHistory.id).label('skip_count'), # first applies the filter, then counts the number of rows by id
+        StreamingHistory.spotify_track_uri,
     ).filter_by(skipped=True).group_by(
         StreamingHistory.master_metadata_track_name,
         StreamingHistory.master_metadata_album_artist_name
     ).order_by(desc('skip_count')).limit(limit).all()
 
+    sp = get_spotify_client()
+    
     return jsonify([{
+        'index': index,
         'track_name': track[0],
         'artist': track[1],
-        'skip_count': track[2]
-    } for track in skipped_tracks])
+        'skip_count': track[2],
+        'album_image_url': sp.track(track_id=track[3].replace("spotify:track:", ""))['album']['images'][0]['url'],
+        'spotify_url': sp.track(track_id=track[3].replace("spotify:track:", ""))['album']['external_urls']['spotify'],
+    } for index, track in enumerate(skipped_tracks)])
 
 @db_bp.route('/history/skip-stats', methods=['GET'])
 def get_skip_stats():
@@ -177,22 +183,11 @@ def get_unique_tracks_count():
     ).scalar()
     return jsonify({'unique_tracks_count': unique_tracks})
 
-@db_bp.route('/history/sessions', methods=['GET'])
-def get_listening_sessions():
-    ''' Get listening sessions and their statistics '''
-    time_gap = request.args.get('gap', 30, type=int)  # Gap in minutes to separate sessions
-    time_gap_ms = time_gap * 60000
+# endregion
 
-    # Query to get tracks in order of timestamps
-    sessions = db_session.query(
-        StreamingHistory.id,
-        StreamingHistory.master_metadata_track_name,
-        StreamingHistory.master_metadata_album_artist_name,
-        StreamingHistory.spotify_track_uri,
-        StreamingHistory.ms_played,  # Add ms_played for session duration
-        StreamingHistory.ts
-    ).order_by(StreamingHistory.ts).all()
 
+def process_sessions(sessions, time_gap_ms):
+    ''' Helper function to process listening sessions '''
     result = []
     session = []
     previous_ts = None
@@ -254,9 +249,55 @@ def get_listening_sessions():
             'tracks': session
         })
 
+    return result
+
+@db_bp.route('/history/sessions', methods=['GET'])
+def get_listening_sessions():
+    ''' Get listening sessions and their statistics '''
+    time_gap = request.args.get('gap', 30, type=int)  # Gap in minutes to separate sessions
+    time_gap_ms = time_gap * 60000
+
+    # Query to get tracks in order of timestamps
+    sessions = db_session.query(
+        StreamingHistory.id,
+        StreamingHistory.master_metadata_track_name,
+        StreamingHistory.master_metadata_album_artist_name,
+        StreamingHistory.spotify_track_uri,
+        StreamingHistory.ms_played,
+        StreamingHistory.ts
+    ).order_by(StreamingHistory.ts).all()
+
+    # Process sessions using the helper function
+    result = process_sessions(sessions, time_gap_ms)
+
     return jsonify(result)
 
-# endregion
+@db_bp.route('/history/sessions/longest', methods=['GET'])
+def get_longest_session():
+    ''' Get the longest listening session '''
+    time_gap = request.args.get('gap', 30, type=int)  # Gap in minutes to separate sessions
+    time_gap_ms = time_gap * 60000
+
+    # Query to get tracks in order of timestamps
+    sessions = db_session.query(
+        StreamingHistory.id,
+        StreamingHistory.master_metadata_track_name,
+        StreamingHistory.master_metadata_album_artist_name,
+        StreamingHistory.spotify_track_uri,
+        StreamingHistory.ms_played,
+        StreamingHistory.ts
+    ).order_by(StreamingHistory.ts).all()
+
+    # Process sessions
+    all_sessions = process_sessions(sessions, time_gap_ms)
+
+    # Find the longest session based on total_ms_played
+    if all_sessions:
+        longest_session = max(all_sessions, key=lambda s: s['total_ms_played'])
+        return jsonify(longest_session)
+
+    return jsonify({'error': 'No sessions found'}), 404
+
 
 # Trends
 # region

@@ -73,9 +73,9 @@ def callback():
     
     if custom_id: # If the user has a custom_id, store it in the session
         session['custom_id'] = custom_id
-        return redirect(f"http://localhost:5173/accounts/{custom_id}")
+        return redirect(f"http://localhost:5173/{custom_id}")
     else:
-        return redirect(f"http://localhost:5173/accounts/{spotify_user_id}")
+        return redirect(f"http://localhost:5173/{spotify_user_id}")
 
 # Logout route
 @auth_bp.route('/logout')

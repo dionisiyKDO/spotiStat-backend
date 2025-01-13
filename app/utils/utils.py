@@ -12,7 +12,10 @@ from app.config import Config
 from app.database import db_session, init_db, get_user_db
 from app.models import StreamingHistory, User
 
+# Think about using redis for caching
+# Think about updating timer for cache when i use specific cached data
 cache = Cache(config={'CACHE_TYPE': 'simple', 'CACHE_DEFAULT_TIMEOUT': Config.CACHE_DEFAULT_TIMEOUT})
+# cache = Cache(config={'CACHE_TYPE': 'simple', 'CACHE_DEFAULT_TIMEOUT': 1})
 
 init_db()
 
@@ -130,6 +133,7 @@ def process_json_file(file_path):
         db_session.rollback()
         return False
 
+# TODO: timestamp convert to miliseconds from the start of times
 def read_json_and_store_data(json_directory):
     '''
     Process a single JSON file and store the data in the database.

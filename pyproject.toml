@@ -1,0 +1,15 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=3.1.0",
+    "flask-caching>=2.3.0",
+    "pandas>=2.2.3",
+    "python-dotenv>=1.0.1",
+    "pytz>=2024.2",
+    "spotipy>=2.25.0",
+    "sqlalchemy>=2.0.37",
+]

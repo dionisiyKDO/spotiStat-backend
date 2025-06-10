@@ -7,8 +7,7 @@ test.py
 test.txt
 main.ipynb
 settings.json
-app/data/dionisiy/*
-app/data/streaming_history.db
+app/data/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

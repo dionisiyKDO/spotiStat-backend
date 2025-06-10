@@ -22,9 +22,9 @@ init_db()
 ### Helper Functions ###
 # region
 
-def get_user_id():
-    '''Helper function to retrieve user_id from the session.'''
-    return session.get('user_id')
+def get_username():
+    '''Helper function to retrieve username from the session.'''
+    return session.get('username')
 
 def process_track(item):
     '''
@@ -73,15 +73,16 @@ def store_streaming_history(data):
     Args:
         data (list): List of streaming history records.
     '''
+    username = get_username()
+    
     for record in data:
         history = StreamingHistory(
             ts=record.get('ts'),
-            username=record.get('username'),
+            username=username,
             platform=record.get('platform'),
             ms_played=record.get('ms_played'),
             conn_country=record.get('conn_country'),
-            ip_addr_decrypted=record.get('ip_addr_decrypted'),
-            user_agent_decrypted=record.get('user_agent_decrypted'),
+            ip_addr=record.get('ip_addr'),
             master_metadata_track_name=record.get('master_metadata_track_name'),
             master_metadata_album_artist_name=record.get('master_metadata_album_artist_name'),
             master_metadata_album_album_name=record.get('master_metadata_album_album_name'),
@@ -89,6 +90,10 @@ def store_streaming_history(data):
             episode_name=record.get('episode_name'),
             episode_show_name=record.get('episode_show_name'),
             spotify_episode_uri=record.get('spotify_episode_uri'),
+            audiobook_title=record.get('audiobook_title'),
+            audiobook_uri=record.get('audiobook_uri'),
+            audiobook_chapter_uri=record.get('audiobook_chapter_uri'),
+            audiobook_chapter_title=record.get('audiobook_chapter_title'),
             reason_start=record.get('reason_start'),
             reason_end=record.get('reason_end'),
             shuffle=record.get('shuffle'),
@@ -100,7 +105,7 @@ def store_streaming_history(data):
         db_session.add(history)
     db_session.commit()
     
-    # maybe faster
+    # maybe faster using bulk save
     # """
     # Store streaming history data in bulk for performance optimization.
     # """
@@ -124,8 +129,8 @@ def process_json_file(file_path):
     '''
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            store_streaming_history(data)
+            data = json.load(f) # load data
+            store_streaming_history(data) # save to db
             logging.info(f"Data from {os.path.basename(file_path)} stored successfully.")
             return True
     except (json.JSONDecodeError, IntegrityError) as e:
@@ -133,22 +138,13 @@ def process_json_file(file_path):
         db_session.rollback()
         return False
 
-# TODO: timestamp convert to miliseconds from the start of times
 def read_json_and_store_data(json_directory):
-    '''
-    Process a single JSON file and store the data in the database.
-    
-    Args:
-        file_path (str): The path to the JSON file to process.
-    
-    Returns:
-        bool: True if the process is successful, False otherwise.
-    '''
+    '''Start processing all JSONS'''
     success = True
     for file_name in os.listdir(json_directory): # Iterate through the files in the specified directory
         if file_name.startswith("Streaming_History_Audio_") and file_name.endswith(".json"): # Check if the file matches the pattern 'Streaming_History_Audio_{year}.json'
             file_path = os.path.join(json_directory, file_name)
-            if not process_json_file(file_path):
+            if not process_json_file(file_path): # start processing file
                 success = False
     return success
 

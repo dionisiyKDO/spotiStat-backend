@@ -2,8 +2,9 @@ from flask import jsonify, session, current_app, request
 from sqlalchemy import func, desc, extract
 import pandas as pd
 
-from app.blueprints.auth.routes import get_spotify_client
+# from app.blueprints.auth.routes import get_spotify_client
 from app.utils.utils import *
+from app.models import StreamingHistory, User
 from . import db_bp
 
 
@@ -41,7 +42,7 @@ def upload_history():
     
     tmp = read_json_and_store_data(json_directory='./app/data/dionisiy')
 
-    return jsonify(tmp.to_dict())
+    return jsonify({'success': tmp})
 
 @db_bp.route('/history/track/<track_id>/stats', methods=['GET'])
 def get_track_stats(track_id):
@@ -100,7 +101,6 @@ def get_track_stats(track_id):
     
     # Calculate additional stats
     avg_playtime = track_stats.total_ms_played / track_stats.total_plays if track_stats.total_plays > 0 else 0
-    total_days_played = (last_played - first_played).days if first_played and last_played else 0
     
     # Query to get most frequent playtime (hour)
     most_frequent_playtime = (
@@ -134,7 +134,6 @@ def get_track_stats(track_id):
         'first_played': first_played_str,
         'last_played': last_played_str,
         'avg_playtime_per_play': avg_playtime,
-        'total_days_played': total_days_played,
         'most_frequent_play_hour': most_frequent_playtime.hour if most_frequent_playtime else None,
         'most_frequent_play_count': most_frequent_playtime.play_count if most_frequent_playtime else 0
     })

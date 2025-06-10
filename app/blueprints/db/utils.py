@@ -3,7 +3,7 @@ from sqlalchemy import func, desc, extract, case, distinct
 from datetime import datetime
 import pandas as pd
 
-from app.blueprints.auth.routes import get_spotify_client
+# from app.blueprints.auth.routes import get_spotify_client
 from app.utils.utils import *
 from . import db_bp
 

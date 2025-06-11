@@ -140,10 +140,21 @@ def process_json_file(file_path):
 
 def read_json_and_store_data(json_directory):
     '''Start processing all JSONS'''
+    # TODO: checks on folder existing
+    # TODO: sorted checing folders, so records would bed stored chronologically
+    
+    
+    if not get_username():
+        print("Tried uploading history without logging in")
+        return False
+    
+    
+    print(json_directory)
     success = True
     for file_name in os.listdir(json_directory): # Iterate through the files in the specified directory
         if file_name.startswith("Streaming_History_Audio_") and file_name.endswith(".json"): # Check if the file matches the pattern 'Streaming_History_Audio_{year}.json'
             file_path = os.path.join(json_directory, file_name)
+            print('start to process:', file_path)
             if not process_json_file(file_path): # start processing file
                 success = False
     return success

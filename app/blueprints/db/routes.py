@@ -7,6 +7,7 @@ from app.utils.utils import *
 from app.models import StreamingHistory, User
 from . import db_bp
 
+# TODO: think about how to handle same songs, but in different albums, etc. Stats should summed up, but they are split as they are technically different songs
 
 @db_bp.route('/check_history')
 def check_history():
@@ -16,6 +17,27 @@ def check_history():
         return jsonify({'error': 'No history found for this account'}), 404
     else:
         return jsonify({'message': 'History found for this account'})
+
+# NOW it is route for importing json files from pc, and storing them in sqllite db
+# Ideally, it should be a route to accept json files from the frontend, and store them in the db
+# @db_bp.route('/upload_history', methods=['POST'])
+@db_bp.route('/upload_history')
+def upload_history():
+    username = str(request.args.get('username', None))
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
+    # if not request.is_json:
+    #     return jsonify({'error': 'Invalid input, expected JSON'}), 400
+    # data = request.get_json()
+    # try:
+    #     tmp = read_json_and_store_data(json_data=data)
+    # except Exception as e:
+    #     return jsonify({'error': f'Failed to process data: {str(e)}'}), 500
+    
+    tmp = read_json_and_store_data(json_directory=os.path.join('./app/data/', username))
+
+    return jsonify({'success': tmp})
 
 
 
@@ -27,37 +49,25 @@ def check_history():
 
 MS_IN_HOUR = 1000 * 60 * 60
 
-# NOW it is route for importing json files from pc, and storing them in sqllite db
-# Ideally, it should be a route to accept json files from the frontend, and store them in the db
-# @db_bp.route('/upload_history', methods=['POST'])
-@db_bp.route('/upload_history')
-def upload_history():
-    # if not request.is_json:
-    #     return jsonify({'error': 'Invalid input, expected JSON'}), 400
-    # data = request.get_json()
-    # try:
-    #     tmp = read_json_and_store_data(json_data=data)
-    # except Exception as e:
-    #     return jsonify({'error': f'Failed to process data: {str(e)}'}), 500
-    
-    tmp = read_json_and_store_data(json_directory='./app/data/dionisiy')
-
-    return jsonify({'success': tmp})
-
 @db_bp.route('/history/track/<track_id>/stats', methods=['GET'])
 def get_track_stats(track_id):
+    username = str(request.args.get('username', None))
+    print('requested history/track/<track_id>/stats : with username = ', username)
+    if username is None:
+        return jsonify({'error': 'No username provided'}), 404
+    
     # Strip the "spotify:track:" prefix from the URI for both queries
     track_uri = f"spotify:track:{track_id}"
     
     # Query to get play count and total playtime (ms_played) per day for the track
-        
     play_counts = (
         db_session.query(
             func.date(StreamingHistory.ts).label('date'), 
             func.count(StreamingHistory.ts).label('play_count'),
             func.sum(StreamingHistory.ms_played).label('total_ms_played')  # Adding total playtime per day
         )
-        .filter(StreamingHistory.spotify_track_uri == track_uri)
+        .filter((StreamingHistory.spotify_track_uri == track_uri) &
+                (StreamingHistory.username == username))
         .group_by(func.date(StreamingHistory.ts))
         .order_by(func.date(StreamingHistory.ts))
         .all()
@@ -81,7 +91,8 @@ def get_track_stats(track_id):
             func.max(StreamingHistory.ts).label('last_played'),
             func.count(func.distinct(func.date(StreamingHistory.ts))).label('distinct_days_played')
         )
-        .filter(StreamingHistory.spotify_track_uri == track_uri)
+        .filter((StreamingHistory.spotify_track_uri == track_uri) &
+                (StreamingHistory.username == username))
         .one()
     )
     
@@ -108,7 +119,8 @@ def get_track_stats(track_id):
             extract('hour', StreamingHistory.ts).label('hour'),
             func.count(StreamingHistory.ts).label('play_count')
         )
-        .filter(StreamingHistory.spotify_track_uri == track_uri)
+        .filter((StreamingHistory.spotify_track_uri == track_uri) &
+                (StreamingHistory.username == username))
         .group_by(extract('hour', StreamingHistory.ts))
         .order_by(func.count(StreamingHistory.ts).desc())
         .limit(1)
@@ -141,6 +153,11 @@ def get_track_stats(track_id):
 # Route to get statistics for a specific artist including timeline data
 @db_bp.route('/history/artist/<artist_name>/stats', methods=['GET'])
 def get_artist_stats(artist_name):
+    username = str(request.args.get('username', None))
+    print('requested history/artist/<artist_name>/stats : with username = ', username)
+    if username is None:
+        return jsonify({'error': 'No username provided'}), 404
+    
     # Query to get daily play counts and total playtime per day for the artist
     play_counts = (
         db_session.query(
@@ -148,7 +165,8 @@ def get_artist_stats(artist_name):
             func.count(StreamingHistory.ts).label('play_count'),
             func.sum(StreamingHistory.ms_played).label('total_ms_played')
         )
-        .filter(StreamingHistory.master_metadata_album_artist_name == artist_name)
+        .filter((StreamingHistory.master_metadata_album_artist_name == artist_name) &
+                (StreamingHistory.username == username))
         .group_by(func.date(StreamingHistory.ts))
         .order_by(func.date(StreamingHistory.ts))
         .all()
@@ -163,7 +181,8 @@ def get_artist_stats(artist_name):
             func.max(StreamingHistory.ts).label('last_played'),
             func.count(func.distinct(func.date(StreamingHistory.ts))).label('distinct_days_played')
         )
-        .filter(StreamingHistory.master_metadata_album_artist_name == artist_name)
+        .filter((StreamingHistory.master_metadata_album_artist_name == artist_name) &
+                (StreamingHistory.username == username))
         .one()
     )
     
@@ -208,8 +227,14 @@ def get_artist_stats(artist_name):
     })
 
 # Route to get the top N artists by playtime with optional timeline data
+# TODO: the same for tracks
 @db_bp.route('/history/artists/top', methods=['GET'])
 def get_top_artists():
+    username = str(request.args.get('username', None))
+    print('requested history/artists/top : with username = ', username)
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
     # Get parameters from request (default to top 10 and minimum 1 hour playtime)
     top_n = int(request.args.get('limit', 10))
     min_playtime_hours = float(request.args.get('min_playtime', 1))
@@ -224,6 +249,7 @@ def get_top_artists():
             func.sum(StreamingHistory.ms_played).label('total_ms_played'),
             func.count(StreamingHistory.ts).label('total_plays')
         )
+        .filter(StreamingHistory.username == username)
         .group_by(StreamingHistory.master_metadata_album_artist_name)
         .having(func.sum(StreamingHistory.ms_played) >= min_playtime_ms)
         .order_by(func.sum(StreamingHistory.ms_played).desc())
@@ -247,6 +273,7 @@ def get_top_artists():
                 func.sum(StreamingHistory.ms_played).label('total_ms_played')
             )
             .filter(StreamingHistory.master_metadata_album_artist_name == artist.artist_name)
+            .filter(StreamingHistory.username == username)
             .group_by(func.date(StreamingHistory.ts))
             .order_by(func.date(StreamingHistory.ts))
             .all()
@@ -286,6 +313,11 @@ def fetch_played_tracks():
     Example: /played-tracks?limit_count=5&limit_play=100000&group_by=artist
              /played-tracks?limit_count=5&limit_play=100000&group_by=artist,track
     """
+    username = str(request.args.get('username', None))
+    print('requested history/played-tracks : with username = ', username)
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
     limit_count = request.args.get('limit_count', 0, type=int)  # Default to 0 if not provided
     limit_play = request.args.get('limit_play', 0, type=int)  # Default to 0 if not provided
     group_by = request.args.get('group_by', 'artist,track', type=str)  # Default to 'artist,track'
@@ -299,7 +331,7 @@ def fetch_played_tracks():
         StreamingHistory.master_metadata_album_artist_name.label('artist_name'),
         func.count(StreamingHistory.ts).label('play_count'),
         func.sum(StreamingHistory.ms_played).label('total_ms_played')
-    )
+    ).filter(StreamingHistory.username == username)
 
     # Add track name and Spotify URI if grouping by track
     if group_by_track:

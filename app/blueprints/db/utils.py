@@ -23,9 +23,14 @@ def get_all_records(limit: int):
     Retrieve the listening history from head
         limit: number of records to return
     '''
-    records = db_session.query(StreamingHistory).limit(limit).all()
+    username = str(request.args.get('username', None))
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
+    records = db_session.query(StreamingHistory).filter(StreamingHistory.username == username).limit(limit).all()
     return jsonify([record.to_dict() for record in records])
 
+# TODO: think is it really needed? how could it possibly be usefull
 @db_bp.route('/history/record/<int:id>', methods=['GET'])
 def get_streaming_record(id: int):
     '''
@@ -44,8 +49,13 @@ def get_by_artist(artist_name: str):
     Retrieve all records filtered by artist name
         artist_name: name of the artist to search for
     '''
+    username = str(request.args.get('username', None))
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
     records = db_session.query(StreamingHistory).filter(
-        StreamingHistory.master_metadata_album_artist_name.ilike(f'%{artist_name}%')
+        StreamingHistory.master_metadata_album_artist_name.ilike(f'%{artist_name}%') and 
+        StreamingHistory.username == username
     ).all()
     if not records:
         return jsonify({'error': f'Records with artist name "{artist_name}" not found'}), 404
@@ -58,8 +68,13 @@ def get_by_album(album_name):
     Retrieve all records filtered by album name
         album_name: name of the album to search for
     '''
+    username = str(request.args.get('username', None))
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
     records = db_session.query(StreamingHistory).filter(
-        StreamingHistory.master_metadata_album_album_name.ilike(f'%{album_name}%')
+        StreamingHistory.master_metadata_album_album_name.ilike(f'%{album_name}%') and 
+        StreamingHistory.username == username
     ).all()
     if not records:
         return jsonify({'error': f'Records with album name "{album_name}" not found'}), 404
@@ -73,7 +88,14 @@ def get_by_album(album_name):
 @db_bp.route('/history/total-listening-time', methods=['GET'])
 def get_total_listening_time():
     ''' Display the total listening time in ms/min/hour/day '''
-    total_ms = db_session.query(func.sum(StreamingHistory.ms_played)).scalar()
+    username = request.args.get('username', None)
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
+    total_ms = db_session.query(
+        func.sum(StreamingHistory.ms_played)
+    ).filter(StreamingHistory.username == username).scalar()
+    
     total_minutes = total_ms / MS_IN_MINUTE
     total_hours = total_ms / MS_IN_HOUR
     total_days = total_ms / MS_IN_DAY
@@ -88,11 +110,15 @@ def get_total_listening_time():
 @db_bp.route('/history/platform-stats', methods=['GET'])
 def get_platform_stats():
     ''' Display the total listening time and number of plays for each platform '''
+    username = request.args.get('username', None)
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
     platform_stats = db_session.query(
         StreamingHistory.platform,
         func.count(StreamingHistory.platform).label('play_count'),
         func.sum(StreamingHistory.ms_played).label('total_ms_played'),
-    ).group_by(StreamingHistory.platform).all()
+    ).filter(StreamingHistory.username == username).group_by(StreamingHistory.platform).all()
 
     grouped_stats = {
         'Linux': {'play_count': 0, 'total_ms_played': 0},
@@ -128,13 +154,17 @@ def get_platform_stats():
 @db_bp.route('/history/most-skipped-tracks', methods=['GET'])
 def get_most_skipped_tracks():
     ''' Get the most skipped tracks '''
+    username = request.args.get('username', None)
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
     limit = request.args.get('limit', 10, type=int)
     skipped_tracks = db_session.query(
         StreamingHistory.master_metadata_track_name,
         StreamingHistory.master_metadata_album_artist_name,
         func.count(StreamingHistory.id).label('skip_count'), # first applies the filter, then counts the number of rows by id
         StreamingHistory.spotify_track_uri,
-    ).filter_by(skipped=True).group_by(
+    ).filter(StreamingHistory.username == username).filter_by(skipped=True).group_by(
         StreamingHistory.master_metadata_track_name,
         StreamingHistory.master_metadata_album_artist_name
     ).order_by(desc('skip_count')).limit(limit).all()
@@ -153,8 +183,12 @@ def get_most_skipped_tracks():
 @db_bp.route('/history/skip-stats', methods=['GET'])
 def get_skip_stats():
     ''' Get the total number of plays and the number of skipped tracks + skip rate '''
-    total_plays = db_session.query(func.count(StreamingHistory.id)).scalar()
-    skipped_tracks = db_session.query(func.count(StreamingHistory.id)).filter_by(skipped=True).scalar()
+    username = request.args.get('username', None)
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
+    total_plays = db_session.query(func.count(StreamingHistory.id)).filter(StreamingHistory.username == username).scalar()
+    skipped_tracks = db_session.query(func.count(StreamingHistory.id)).filter(StreamingHistory.username == username).filter_by(skipped=True).scalar()
     return jsonify({
         'total_plays': total_plays,
         'skipped_tracks': skipped_tracks,
@@ -165,10 +199,14 @@ def get_skip_stats():
 @db_bp.route('/history/end-reasons', methods=['GET'])
 def get_end_reasons():
     ''' Get the number of times each end reason occurred '''
+    username = request.args.get('username', None)
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
     end_reasons = db_session.query(
         StreamingHistory.reason_end, 
         func.count(StreamingHistory.reason_end).label('count')
-    ).group_by(StreamingHistory.reason_end).all()
+    ).filter(StreamingHistory.username == username).group_by(StreamingHistory.reason_end).all()
     
     return jsonify([{
         'reason_end': reason[0],
@@ -178,9 +216,13 @@ def get_end_reasons():
 @db_bp.route('/history/unique-tracks-count', methods=['GET'])
 def get_unique_tracks_count():
     ''' Get the number of unique tracks listened to '''
+    username = request.args.get('username', None)
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
     unique_tracks = db_session.query(
         func.count(distinct(StreamingHistory.spotify_track_uri)).label('unique_tracks_count')
-    ).scalar()
+    ).filter(StreamingHistory.username == username).scalar()
     return jsonify({'unique_tracks_count': unique_tracks})
 
 # endregion
@@ -254,6 +296,10 @@ def process_sessions(sessions, time_gap_ms):
 @db_bp.route('/history/sessions', methods=['GET'])
 def get_listening_sessions():
     ''' Get listening sessions and their statistics '''
+    username = request.args.get('username', None)
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
     time_gap = request.args.get('gap', 30, type=int)  # Gap in minutes to separate sessions
     time_gap_ms = time_gap * 60000
 
@@ -265,7 +311,7 @@ def get_listening_sessions():
         StreamingHistory.spotify_track_uri,
         StreamingHistory.ms_played,
         StreamingHistory.ts
-    ).order_by(StreamingHistory.ts).all()
+    ).filter(StreamingHistory.username == username).order_by(StreamingHistory.ts).all()
 
     # Process sessions using the helper function
     result = process_sessions(sessions, time_gap_ms)
@@ -275,6 +321,10 @@ def get_listening_sessions():
 @db_bp.route('/history/sessions/longest', methods=['GET'])
 def get_longest_session():
     ''' Get the longest listening session '''
+    username = request.args.get('username', None)
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
     time_gap = request.args.get('gap', 30, type=int)  # Gap in minutes to separate sessions
     time_gap_ms = time_gap * 60000
 
@@ -286,7 +336,7 @@ def get_longest_session():
         StreamingHistory.spotify_track_uri,
         StreamingHistory.ms_played,
         StreamingHistory.ts
-    ).order_by(StreamingHistory.ts).all()
+    ).filter(StreamingHistory.username == username).order_by(StreamingHistory.ts).all()
 
     # Process sessions
     all_sessions = process_sessions(sessions, time_gap_ms)
@@ -305,10 +355,15 @@ def get_longest_session():
 @db_bp.route('/history/hourly-trends', methods=['GET'])
 def get_hourly_trends():
     ''' Get hourly listening statistics '''
+    username = request.args.get('username', None)
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
     hourly_trends = db_session.query(
         func.extract('hour', StreamingHistory.ts).label('hour'),
         func.count(StreamingHistory.id).label('play_count'),
         func.sum(StreamingHistory.ms_played).label('total_ms_played')
+    ).filter(StreamingHistory.username == username
     ).group_by('hour').order_by('hour').all()
 
     return jsonify([{
@@ -320,10 +375,15 @@ def get_hourly_trends():
 @db_bp.route('/history/weekly-trends', methods=['GET'])
 def get_weekly_trends():
     ''' Get weekly listening statistics '''
+    username = request.args.get('username', None)
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
     daily_trends = db_session.query(
         func.strftime('%w', StreamingHistory.ts).label('day_of_week'),  # Get day of the week (0 = Sunday, ..., 6 = Saturday)
         func.count(StreamingHistory.id).label('play_count'),
         func.sum(StreamingHistory.ms_played).label('total_ms_played')
+    ).filter(StreamingHistory.username == username
     ).group_by(func.strftime('%w', StreamingHistory.ts)
     ).order_by(func.strftime('%w', StreamingHistory.ts)
     ).all()
@@ -339,10 +399,15 @@ def get_weekly_trends():
 @db_bp.route('/history/daily-trends', methods=['GET'])
 def get_daily_trends():
     ''' Get daily listening statistics '''
+    username = request.args.get('username', None)
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
     daily_trends = db_session.query(
         func.strftime('%Y-%m-%d', StreamingHistory.ts).label('day'),  # Use strftime for SQLite date formatting
         func.count(StreamingHistory.id).label('play_count'),
         func.sum(StreamingHistory.ms_played).label('total_ms_played')
+    ).filter(StreamingHistory.username == username
     ).group_by(func.strftime('%Y-%m-%d', StreamingHistory.ts)
     ).order_by(func.strftime('%Y-%m-%d', StreamingHistory.ts)
     ).all()
@@ -369,6 +434,10 @@ def get_top_tracks():
         date: filter tracks by a specific date (format: YYYY-MM-DD)
         artist: filter tracks by a specific artist name
     '''
+    username = request.args.get('username', None)
+    if username == None:
+        return jsonify({'error': 'No username provided'}), 404
+    
     limit   = request.args.get('limit', 10, type=int)
     sort_by = request.args.get('sort_by', 'total_ms_played', type=str)
     year    = request.args.get('year', type=int)
@@ -389,7 +458,8 @@ def get_top_tracks():
         func.sum(StreamingHistory.ms_played).label('total_ms_played'),
         StreamingHistory.spotify_track_uri,
     ).filter(
-        StreamingHistory.master_metadata_track_name.isnot(None)
+        StreamingHistory.master_metadata_track_name.isnot(None) and 
+        StreamingHistory.username == username
     )
 
     # Apply filters

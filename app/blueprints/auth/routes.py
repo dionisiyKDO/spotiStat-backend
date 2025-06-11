@@ -75,7 +75,7 @@ def login():
 @auth_bp.route('/logout')
 def logout():
     session.clear()
-    return jsonify({'message': 'Logged out successfully'}), 200
+    return redirect("http://localhost:5173/login")
 
 # Helper function to get current user (replaces get_spotify_client)
 def get_current_user():

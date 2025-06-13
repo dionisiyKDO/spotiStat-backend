@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Boolean, Integer, String
+from sqlalchemy import Column, Boolean, Integer, String, Text, DateTime
 from datetime import datetime, timezone
+import json
 from werkzeug.security import generate_password_hash, check_password_hash
 
 import pytz
@@ -8,8 +9,6 @@ from app.database import Base
 
 utc_plus_3 = pytz.timezone('Etc/GMT-3')
 
-
-# draft for future user profile table
 
 # User based on Spotify logging in
 # class User(Base):
@@ -22,6 +21,7 @@ utc_plus_3 = pytz.timezone('Etc/GMT-3')
 #         return f'<User {self.spotify_user_id} - {self.display_name}>'
 
 
+# User based on local username and password
 class User(Base):
     __tablename__ = 'users'
     
@@ -34,6 +34,23 @@ class User(Base):
     
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+
+class UserStats(Base):
+    __tablename__ = 'user_stats'
+    
+    id = Column(Integer, primary_key=True)
+    username = Column(String(255), nullable=False, unique=True)
+    stats_data = Column(Text, nullable=False)  # JSON string of all stats
+    calculated_at = Column(DateTime, nullable=False)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.username,
+            'stats_data': json.loads(self.stats_data),
+            'calculated_at': self.calculated_at.isoformat() if self.calculated_at else None
+        }
 
 
 class StreamingHistory(Base):

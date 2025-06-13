@@ -3,6 +3,7 @@ from sqlalchemy import func, desc, extract, case, distinct
 from datetime import datetime
 from app.database import db_session
 from app.models import StreamingHistory, UserStats
+from app.utils.stats_manager import StatsManager
 import pandas as pd
 
 # from app.utils.upload_utils import *
@@ -14,6 +15,7 @@ MS_IN_MINUTE = 1000 * 60
 
 
 # region Record fetching
+
 @db_bp.route('/history/<int:limit>', methods=['GET']) # TODO: questionable existance, but for know okay
 def get_all_records(limit: int):
     ''' 
@@ -21,7 +23,7 @@ def get_all_records(limit: int):
         limit: number of records to return
     '''
     username = str(request.args.get('username', None))
-    if username is None:
+    if not username:
         return jsonify({'error': 'No username provided'}), 404
     
     records = db_session.query(StreamingHistory).filter(StreamingHistory.username == username).limit(limit).all()
@@ -34,7 +36,7 @@ def get_all_records_by_artist(artist_name: str):
         artist_name: name of the artist to search for
     '''
     username = str(request.args.get('username', None))
-    if username is None:
+    if not username:
         return jsonify({'error': 'No username provided'}), 404
 
     records = db_session.query(StreamingHistory).filter(
@@ -54,7 +56,7 @@ def get_all_records_by_album(album_name):
         album_name: name of the album to search for
     '''
     username = str(request.args.get('username', None))
-    if username == None:
+    if not username:
         return jsonify({'error': 'No username provided'}), 404
     
     records = db_session.query(StreamingHistory).filter(
@@ -69,154 +71,102 @@ def get_all_records_by_album(album_name):
 
 # endregion
 
-# analyze data
+
+# history/total-listening-time?username=<username>      - /stats/total-listening-time/<username>
+# history/platform-stats?username=<username>            - /stats/platform-stats/<username>
+# history/most-skipped-tracks?username=<username>       - /stats/most-skipped-tracks/<username>
+# history/skip-stats?username=<username>                - /stats/skip-stats/<username>
+# history/end-reasons?username=<username>               - /stats/end-reasons/<username>
+# history/unique-tracks-count?username=<username>       - /stats/unique-tracks-count/<username>
+# history/total-listening-time?username=<username> - 
+
+# Stats routes
 # region
 
-# aboba
-@db_bp.route('/history/total-listening-time', methods=['GET'])
-def get_total_listening_time():
-    ''' Display the total listening time in ms/min/hour/day '''
-    username = request.args.get('username', None)
-    if username == None:
-        return jsonify({'error': 'No username provided'}), 404
-    
-    total_ms = db_session.query(
-        func.sum(StreamingHistory.ms_played)
-    ).filter(StreamingHistory.username == username).scalar()
-    
-    total_minutes = total_ms / MS_IN_MINUTE
-    total_hours = total_ms / MS_IN_HOUR
-    total_days = total_ms / MS_IN_DAY
+# TODO: check if works
+@db_bp.route('/stats/calculate/<username>', methods=['POST'])
+def calculate_user_stats(username):
+    """Trigger stats calculation for a user"""
+    try:
+        stats = StatsManager.calculate_stats_for_user(username)
+        return jsonify({
+            'message': f'Stats calculated successfully for {username}',
+            'calculated_at': stats['calculated_at']
+        })
+    except Exception as e:
+        return jsonify({'error': f'Error calculating stats: {str(e)}'}), 500
+
+@db_bp.route('/stats/status/<username>', methods=['GET'])
+def get_stats_status(username):
+    """Check if stats exist for a user and when they were last calculated"""
+    exists = StatsManager.stats_exist_for_user(username)
+    calculation_date = StatsManager.get_stats_calculation_date(username)
     
     return jsonify({
-        'total_listening_ms': total_ms,
-        'total_listening_minutes': total_minutes,
-        'total_listening_hours': total_hours,
-        'total_listening_days': total_days,
-        })
+        'stats_exist': exists,
+        'last_calculated': calculation_date.isoformat() if calculation_date else None
+    })
 
-# aboba
-@db_bp.route('/history/platform-stats', methods=['GET'])
-def get_platform_stats():
+@db_bp.route('/stats/total-listening-time/<username>', methods=['GET']) # 100 to 40 / -60ms response time
+def get_total_listening_time(username):
+    ''' Display the total listening time in ms/min/hour/day '''
+    stats = StatsManager.get_stats_for_user(username)
+    if not stats:
+        return jsonify({'error': 'Stats not found. Please calculate stats first.'}), 404
+    
+    return jsonify(stats['total_listening_time'])
+
+@db_bp.route('/stats/platform-stats/<username>', methods=['GET']) # 140 to 40 / -100ms response time
+def get_platform_stats(username):
     ''' Display the total listening time and number of plays for each platform '''
-    username = request.args.get('username', None)
-    if username == None:
-        return jsonify({'error': 'No username provided'}), 404
+    stats = StatsManager.get_stats_for_user(username)
+    if not stats:
+        return jsonify({'error': 'Stats not found. Please calculate stats first.'}), 404
     
-    platform_stats = db_session.query(
-        StreamingHistory.platform,
-        func.count(StreamingHistory.platform).label('play_count'),
-        func.sum(StreamingHistory.ms_played).label('total_ms_played'),
-    ).filter(StreamingHistory.username == username).group_by(StreamingHistory.platform).all()
+    return jsonify(stats['platform_stats'])
 
-    grouped_stats = {
-        'Linux': {'play_count': 0, 'total_ms_played': 0},
-        'Windows': {'play_count': 0, 'total_ms_played': 0},
-        'Android': {'play_count': 0, 'total_ms_played': 0},
-        'Other': {'play_count': 0, 'total_ms_played': 0}
-    }
-
-    # Iterate over the results to group by platform category
-    for platform in platform_stats:
-        platform_name = platform[0].lower()  # Normalize to lowercase for matching
-
-        if 'linux' in platform_name:
-            grouped_stats['Linux']['play_count'] += platform[1]
-            grouped_stats['Linux']['total_ms_played'] += platform[2]
-        elif 'windows' in platform_name:
-            grouped_stats['Windows']['play_count'] += platform[1]
-            grouped_stats['Windows']['total_ms_played'] += platform[2]
-        elif 'android' in platform_name:
-            grouped_stats['Android']['play_count'] += platform[1]
-            grouped_stats['Android']['total_ms_played'] += platform[2]
-        else:
-            grouped_stats['Other']['play_count'] += platform[1]
-            grouped_stats['Other']['total_ms_played'] += platform[2]
-
-    # Prepare the response in the desired format
-    return jsonify([{
-        'platform': platform,
-        'play_count': stats['play_count'],
-        'total_ms_played': stats['total_ms_played']
-    } for platform, stats in grouped_stats.items()])
-
-# aboba
-@db_bp.route('/history/most-skipped-tracks', methods=['GET'])
-def get_most_skipped_tracks():
+@db_bp.route('/stats/most-skipped-tracks/<username>', methods=['GET']) # 100 to 40 / -60ms response time
+def get_most_skipped_tracks(username):
     ''' Get the most skipped tracks '''
-    username = request.args.get('username', None)
-    if username == None:
-        return jsonify({'error': 'No username provided'}), 404
-    
     limit = request.args.get('limit', 10, type=int)
-    skipped_tracks = db_session.query(
-        StreamingHistory.master_metadata_track_name,
-        StreamingHistory.master_metadata_album_artist_name,
-        func.count(StreamingHistory.id).label('skip_count'), # first applies the filter, then counts the number of rows by id
-        StreamingHistory.spotify_track_uri,
-    ).filter(StreamingHistory.username == username).filter_by(skipped=True).group_by(
-        StreamingHistory.master_metadata_track_name,
-        StreamingHistory.master_metadata_album_artist_name
-    ).order_by(desc('skip_count')).limit(limit).all()
-
-    # sp = get_spotify_client()
+    
+    stats = StatsManager.get_stats_for_user(username)
+    if not stats:
+        return jsonify({'error': 'Stats not found. Please calculate stats first.'}), 404
+    
+    skipped_tracks = stats['most_skipped_tracks'][:limit]
     
     return jsonify([{
         'index': index,
-        'track_name': track[0],
-        'artist': track[1],
-        'skip_count': track[2],
-        # 'album_image_url': sp.track(track_id=track[3].replace("spotify:track:", ""))['album']['images'][0]['url'],
-        # 'spotify_url': sp.track(track_id=track[3].replace("spotify:track:", ""))['album']['external_urls']['spotify'],
+        **track
     } for index, track in enumerate(skipped_tracks)])
 
-# aboba
-@db_bp.route('/history/skip-stats', methods=['GET'])
-def get_skip_stats():
+@db_bp.route('/stats/skip-stats/<username>', methods=['GET']) # 120 to 40 / -80ms response time
+def get_skip_stats(username):
     ''' Get the total number of plays and the number of skipped tracks + skip rate '''
-    username = request.args.get('username', None)
-    if username == None:
-        return jsonify({'error': 'No username provided'}), 404
+    stats = StatsManager.get_stats_for_user(username)
+    if not stats:
+        return jsonify({'error': 'Stats not found. Please calculate stats first.'}), 404
     
-    total_plays = db_session.query(func.count(StreamingHistory.id)).filter(StreamingHistory.username == username).scalar()
-    skipped_tracks = db_session.query(func.count(StreamingHistory.id)).filter(StreamingHistory.username == username).filter_by(skipped=True).scalar()
-    return jsonify({
-        'total_plays': total_plays,
-        'skipped_tracks': skipped_tracks,
-        'skip_rate': skipped_tracks / total_plays if total_plays > 0 else 0,
-        'skip_percentage': skipped_tracks / total_plays * 100 if total_plays > 0 else 0
-    })
+    return jsonify(stats['skip_stats'])
 
-# aboba
-@db_bp.route('/history/end-reasons', methods=['GET'])
-def get_end_reasons():
+@db_bp.route('/stats/end-reasons/<username>', methods=['GET']) # 150 to 40 / -110ms response time
+def get_end_reasons(username):
     ''' Get the number of times each end reason occurred '''
-    username = request.args.get('username', None)
-    if username == None:
-        return jsonify({'error': 'No username provided'}), 404
+    stats = StatsManager.get_stats_for_user(username)
+    if not stats:
+        return jsonify({'error': 'Stats not found. Please calculate stats first.'}), 404
     
-    end_reasons = db_session.query(
-        StreamingHistory.reason_end, 
-        func.count(StreamingHistory.reason_end).label('count')
-    ).filter(StreamingHistory.username == username).group_by(StreamingHistory.reason_end).all()
-    
-    return jsonify([{
-        'reason_end': reason[0],
-        'count': reason[1]
-    } for reason in end_reasons])
+    return jsonify(stats['end_reasons'])
 
-# aboba
-@db_bp.route('/history/unique-tracks-count', methods=['GET'])
-def get_unique_tracks_count():
+@db_bp.route('/stats/unique-tracks-count/<username>', methods=['GET']) # 170 to 40 / -130ms response time
+def get_unique_tracks_count(username):
     ''' Get the number of unique tracks listened to '''
-    username = request.args.get('username', None)
-    if username == None:
-        return jsonify({'error': 'No username provided'}), 404
+    stats = StatsManager.get_stats_for_user(username)
+    if not stats:
+        return jsonify({'error': 'Stats not found. Please calculate stats first.'}), 404
     
-    unique_tracks = db_session.query(
-        func.count(distinct(StreamingHistory.spotify_track_uri)).label('unique_tracks_count')
-    ).filter(StreamingHistory.username == username).scalar()
-    return jsonify({'unique_tracks_count': unique_tracks})
+    return jsonify(stats['unique_tracks_count'])
 
 # endregion
 
@@ -536,3 +486,41 @@ def get_top_tracks():
 #         'total_ms_played': track[3],
 #         'album_image_url': sp.track(track_id=track[4].replace("spotify:track:", ""))['album']['images'][0]['url']
 #     } for index,track in enumerate(top_tracks)])
+
+
+
+
+
+
+
+# LEGACY ROUTES - Original route names for backward compatibility
+# These now redirect to the new stats routes
+@db_bp.route('/history/total-listening-time', methods=['GET'])
+def get_total_listening_time_legacy():
+    """Legacy route - redirects to stats endpoint"""
+    return get_total_listening_time()
+
+@db_bp.route('/history/platform-stats', methods=['GET'])
+def get_platform_stats_legacy():
+    """Legacy route - redirects to stats endpoint"""
+    return get_platform_stats()
+
+@db_bp.route('/history/most-skipped-tracks', methods=['GET'])
+def get_most_skipped_tracks_legacy():
+    """Legacy route - redirects to stats endpoint"""
+    return get_most_skipped_tracks()
+
+@db_bp.route('/history/skip-stats', methods=['GET'])
+def get_skip_stats_legacy():
+    """Legacy route - redirects to stats endpoint"""
+    return get_skip_stats()
+
+@db_bp.route('/history/end-reasons', methods=['GET'])
+def get_end_reasons_legacy():
+    """Legacy route - redirects to stats endpoint"""
+    return get_end_reasons()
+
+@db_bp.route('/history/unique-tracks-count', methods=['GET'])
+def get_unique_tracks_count_legacy():
+    """Legacy route - redirects to stats endpoint"""
+    return get_unique_tracks_count()

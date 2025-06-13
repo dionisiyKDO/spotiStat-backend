@@ -1,7 +1,7 @@
 from flask import redirect, request, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from app.utils.utils import *
+from app.utils.upload_utils import *
 from app.config import Config
 from . import auth_bp
 

@@ -1,6 +1,7 @@
-import os, json
-from datetime import datetime
+import os 
+import json
 import logging
+from datetime import datetime
 # logging.basicConfig(level=logging.INFO)
 
 from flask import session
@@ -9,7 +10,7 @@ from flask_caching import Cache
 from sqlalchemy.exc import IntegrityError
 
 from app.config import Config
-from app.database import db_session, init_db, get_user_db
+from app.database import db_session, init_db
 from app.models import StreamingHistory, User
 
 # Think about using redis for caching

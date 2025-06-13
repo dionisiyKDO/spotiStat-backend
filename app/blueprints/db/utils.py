@@ -191,6 +191,15 @@ def get_listening_by_month(username):
     
     return jsonify(stats['listening_by_month'])
 
+@db_bp.route('/stats/<username>/listening-by-year', methods=['GET'])
+def get_listening_by_year(username):
+    """Get pre-calculated listening patterns by year"""
+    stats = StatsManager.get_stats_for_user(username)
+    if not stats:
+        return jsonify({'error': 'Stats not found. Please calculate stats first.'}), 404
+    
+    return jsonify(stats['listening_by_year'])
+
 @db_bp.route('/stats/<username>/listening-by-weekday', methods=['GET']) # 210 to 40 / -170ms response time
 def get_listening_by_weekday(username):
     """Get pre-calculated listening patterns by weekday"""
@@ -342,3 +351,4 @@ def get_longest_session():
         return jsonify(longest_session)
 
     return jsonify({'error': 'No sessions found'}), 404
+

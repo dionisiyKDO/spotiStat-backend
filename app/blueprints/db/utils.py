@@ -1,71 +1,56 @@
 from flask import jsonify, session, current_app, request
 from sqlalchemy import func, desc, extract, case, distinct
 from datetime import datetime
+from app.database import db_session
+from app.models import StreamingHistory, UserStats
 import pandas as pd
 
-# from app.blueprints.auth.routes import get_spotify_client
-from app.utils.utils import *
+# from app.utils.upload_utils import *
 from . import db_bp
 
 MS_IN_DAY = 1000 * 60 * 60 * 24
 MS_IN_HOUR = 1000 * 60 * 60
 MS_IN_MINUTE = 1000 * 60
 
-# TODO: spotify uri to url util function
 
-
-# fetch records
-# region 
-
-@db_bp.route('/history/<int:limit>', methods=['GET']) # limit is the number of records to return, in url for dumbcheck purposes 
+# region Record fetching
+@db_bp.route('/history/<int:limit>', methods=['GET']) # TODO: questionable existance, but for know okay
 def get_all_records(limit: int):
     ''' 
-    Retrieve the listening history from head
+    Retrieve the listening history from head for <username>
         limit: number of records to return
     '''
     username = str(request.args.get('username', None))
-    if username == None:
+    if username is None:
         return jsonify({'error': 'No username provided'}), 404
     
     records = db_session.query(StreamingHistory).filter(StreamingHistory.username == username).limit(limit).all()
     return jsonify([record.to_dict() for record in records])
 
-# TODO: think is it really needed? how could it possibly be usefull
-@db_bp.route('/history/record/<int:id>', methods=['GET'])
-def get_streaming_record(id: int):
-    '''
-    Get specific record from listening history
-        id: id of the record to return
-    '''
-    record = db_session.query(StreamingHistory).get(id)
-    if not record:
-        return jsonify({'error': f'Record with id {id} not found'}), 404
-    
-    return jsonify(record.to_dict())
-
 @db_bp.route('/history/artist/<string:artist_name>', methods=['GET'])
-def get_by_artist(artist_name: str):
+def get_all_records_by_artist(artist_name: str):
     '''
-    Retrieve all records filtered by artist name
+    Retrieve all records for <username> filtered by artist name
         artist_name: name of the artist to search for
     '''
     username = str(request.args.get('username', None))
-    if username == None:
+    if username is None:
         return jsonify({'error': 'No username provided'}), 404
-    
+
     records = db_session.query(StreamingHistory).filter(
-        StreamingHistory.master_metadata_album_artist_name.ilike(f'%{artist_name}%') and 
-        StreamingHistory.username == username
+        (StreamingHistory.username == username) &
+        (StreamingHistory.master_metadata_album_artist_name.ilike(f'%{artist_name}%'))
     ).all()
+    
     if not records:
-        return jsonify({'error': f'Records with artist name "{artist_name}" not found'}), 404
+        return jsonify({'error': f'Records with artist name "{artist_name}" for user "{username}" not found'}), 404
     
     return jsonify([record.to_dict() for record in records])
 
 @db_bp.route('/history/album/<string:album_name>', methods=['GET'])
-def get_by_album(album_name):
+def get_all_records_by_album(album_name):
     '''
-    Retrieve all records filtered by album name
+    Retrieve all records for <username> filtered by album name
         album_name: name of the album to search for
     '''
     username = str(request.args.get('username', None))
@@ -73,11 +58,13 @@ def get_by_album(album_name):
         return jsonify({'error': 'No username provided'}), 404
     
     records = db_session.query(StreamingHistory).filter(
-        StreamingHistory.master_metadata_album_album_name.ilike(f'%{album_name}%') and 
-        StreamingHistory.username == username
+        (StreamingHistory.username == username) &
+        (StreamingHistory.master_metadata_album_album_name.ilike(f'%{album_name}%')) 
     ).all()
+    
     if not records:
-        return jsonify({'error': f'Records with album name "{album_name}" not found'}), 404
+        return jsonify({'error': f'Records with album name "{album_name}" for user "{username}" not found'}), 404
+    
     return jsonify([record.to_dict() for record in records])
 
 # endregion
@@ -85,6 +72,7 @@ def get_by_album(album_name):
 # analyze data
 # region
 
+# aboba
 @db_bp.route('/history/total-listening-time', methods=['GET'])
 def get_total_listening_time():
     ''' Display the total listening time in ms/min/hour/day '''
@@ -107,6 +95,7 @@ def get_total_listening_time():
         'total_listening_days': total_days,
         })
 
+# aboba
 @db_bp.route('/history/platform-stats', methods=['GET'])
 def get_platform_stats():
     ''' Display the total listening time and number of plays for each platform '''
@@ -151,6 +140,7 @@ def get_platform_stats():
         'total_ms_played': stats['total_ms_played']
     } for platform, stats in grouped_stats.items()])
 
+# aboba
 @db_bp.route('/history/most-skipped-tracks', methods=['GET'])
 def get_most_skipped_tracks():
     ''' Get the most skipped tracks '''
@@ -169,17 +159,18 @@ def get_most_skipped_tracks():
         StreamingHistory.master_metadata_album_artist_name
     ).order_by(desc('skip_count')).limit(limit).all()
 
-    sp = get_spotify_client()
+    # sp = get_spotify_client()
     
     return jsonify([{
         'index': index,
         'track_name': track[0],
         'artist': track[1],
         'skip_count': track[2],
-        'album_image_url': sp.track(track_id=track[3].replace("spotify:track:", ""))['album']['images'][0]['url'],
-        'spotify_url': sp.track(track_id=track[3].replace("spotify:track:", ""))['album']['external_urls']['spotify'],
+        # 'album_image_url': sp.track(track_id=track[3].replace("spotify:track:", ""))['album']['images'][0]['url'],
+        # 'spotify_url': sp.track(track_id=track[3].replace("spotify:track:", ""))['album']['external_urls']['spotify'],
     } for index, track in enumerate(skipped_tracks)])
 
+# aboba
 @db_bp.route('/history/skip-stats', methods=['GET'])
 def get_skip_stats():
     ''' Get the total number of plays and the number of skipped tracks + skip rate '''
@@ -196,6 +187,7 @@ def get_skip_stats():
         'skip_percentage': skipped_tracks / total_plays * 100 if total_plays > 0 else 0
     })
 
+# aboba
 @db_bp.route('/history/end-reasons', methods=['GET'])
 def get_end_reasons():
     ''' Get the number of times each end reason occurred '''
@@ -213,6 +205,7 @@ def get_end_reasons():
         'count': reason[1]
     } for reason in end_reasons])
 
+# aboba
 @db_bp.route('/history/unique-tracks-count', methods=['GET'])
 def get_unique_tracks_count():
     ''' Get the number of unique tracks listened to '''
@@ -226,6 +219,15 @@ def get_unique_tracks_count():
     return jsonify({'unique_tracks_count': unique_tracks})
 
 # endregion
+
+
+
+
+
+
+
+
+
 
 
 def process_sessions(sessions, time_gap_ms):

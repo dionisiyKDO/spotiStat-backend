@@ -1,20 +1,14 @@
-from flask import jsonify, session, current_app, request
-from sqlalchemy import func, desc, extract, case, distinct
+from flask import jsonify, request
+from sqlalchemy import func
 from datetime import datetime
 from app.database import db_session
-from app.models import StreamingHistory, UserStats
+from app.models import StreamingHistory
 from app.utils.stats_manager import StatsManager
-import pandas as pd
-
-# from app.utils.upload_utils import *
 from . import db_bp
 
-MS_IN_DAY = 1000 * 60 * 60 * 24
-MS_IN_HOUR = 1000 * 60 * 60
-MS_IN_MINUTE = 1000 * 60
 
-
-# region Record fetching
+# Record fetching
+# region 
 
 @db_bp.route('/history/<int:limit>', methods=['GET']) # TODO: questionable existance, but for know okay
 def get_all_records(limit: int):
@@ -71,11 +65,9 @@ def get_all_records_by_album(album_name):
 
 # endregion
 
-
 # Stats routes
 # region
 
-# TODO: check if works
 @db_bp.route('/stats/<username>/calculate', methods=['POST'])
 def calculate_user_stats(username):
     """Trigger stats calculation for a user"""
@@ -181,7 +173,7 @@ def get_top_tracks(username):
     
     return jsonify(stats['top_tracks'][:limit])
 
-@db_bp.route('/stats/<username>/listening-by-hour', methods=['GET'])
+@db_bp.route('/stats/<username>/listening-by-hour', methods=['GET'])  # 240 to 40 / -200ms response time
 def get_listening_by_hour(username):
     """Get pre-calculated listening patterns by hour"""
     stats = StatsManager.get_stats_for_user(username)
@@ -199,6 +191,24 @@ def get_listening_by_month(username):
     
     return jsonify(stats['listening_by_month'])
 
+@db_bp.route('/stats/<username>/listening-by-weekday', methods=['GET']) # 210 to 40 / -170ms response time
+def get_listening_by_weekday(username):
+    """Get pre-calculated listening patterns by weekday"""
+    stats = StatsManager.get_stats_for_user(username)
+    if not stats:
+        return jsonify({'error': 'Stats not found. Please calculate stats first.'}), 404
+    
+    return jsonify(stats['listening_by_weekday'])
+
+@db_bp.route('/stats/<username>/listening-by-date', methods=['GET']) # 280-340 to 70-160 / -170ms response time
+def get_listening_by_date(username):
+    """Get pre-calculated listening patterns by date"""
+    stats = StatsManager.get_stats_for_user(username)
+    if not stats:
+        return jsonify({'error': 'Stats not found. Please calculate stats first.'}), 404
+    
+    return jsonify(stats['listening_by_date'])
+
 @db_bp.route('/stats/<username>/all', methods=['GET'])
 def get_all_stats(username):
     """Get all pre-calculated stats for a user"""
@@ -209,13 +219,6 @@ def get_all_stats(username):
     return jsonify(stats)
 
 # endregion
-
-
-
-
-
-
-
 
 
 
@@ -339,191 +342,3 @@ def get_longest_session():
         return jsonify(longest_session)
 
     return jsonify({'error': 'No sessions found'}), 404
-
-
-# Trends
-# region
-
-@db_bp.route('/history/hourly-trends', methods=['GET'])
-def get_hourly_trends():
-    ''' Get hourly listening statistics '''
-    username = request.args.get('username', None)
-    if username == None:
-        return jsonify({'error': 'No username provided'}), 404
-    
-    hourly_trends = db_session.query(
-        func.extract('hour', StreamingHistory.ts).label('hour'),
-        func.count(StreamingHistory.id).label('play_count'),
-        func.sum(StreamingHistory.ms_played).label('total_ms_played')
-    ).filter(StreamingHistory.username == username
-    ).group_by('hour').order_by('hour').all()
-
-    return jsonify([{
-        'hour': int(trend.hour),
-        'play_count': trend.play_count,
-        'total_ms_played': trend.total_ms_played
-    } for trend in hourly_trends])
-
-@db_bp.route('/history/weekly-trends', methods=['GET'])
-def get_weekly_trends():
-    ''' Get weekly listening statistics '''
-    username = request.args.get('username', None)
-    if username == None:
-        return jsonify({'error': 'No username provided'}), 404
-    
-    daily_trends = db_session.query(
-        func.strftime('%w', StreamingHistory.ts).label('day_of_week'),  # Get day of the week (0 = Sunday, ..., 6 = Saturday)
-        func.count(StreamingHistory.id).label('play_count'),
-        func.sum(StreamingHistory.ms_played).label('total_ms_played')
-    ).filter(StreamingHistory.username == username
-    ).group_by(func.strftime('%w', StreamingHistory.ts)
-    ).order_by(func.strftime('%w', StreamingHistory.ts)
-    ).all()
-
-    days_of_week = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
-    return jsonify([{
-        'day_of_week': days_of_week[int(trend.day_of_week)],  # Convert day number to a readable day name
-        'play_count': trend.play_count,
-        'total_ms_played': trend.total_ms_played
-    } for trend in daily_trends])
-
-@db_bp.route('/history/daily-trends', methods=['GET'])
-def get_daily_trends():
-    ''' Get daily listening statistics '''
-    username = request.args.get('username', None)
-    if username == None:
-        return jsonify({'error': 'No username provided'}), 404
-    
-    daily_trends = db_session.query(
-        func.strftime('%Y-%m-%d', StreamingHistory.ts).label('day'),  # Use strftime for SQLite date formatting
-        func.count(StreamingHistory.id).label('play_count'),
-        func.sum(StreamingHistory.ms_played).label('total_ms_played')
-    ).filter(StreamingHistory.username == username
-    ).group_by(func.strftime('%Y-%m-%d', StreamingHistory.ts)
-    ).order_by(func.strftime('%Y-%m-%d', StreamingHistory.ts)
-    ).all()
-
-    return jsonify([{
-        'day': trend.day,  # The day is already formatted as a string
-        'play_count': trend.play_count,
-        'total_ms_played': trend.total_ms_played
-    } for trend in daily_trends])
-
-# endregion
-
-# endregion
-# TODO: add year sorting
-# @db_bp.route('/history/top-tracks', methods=['GET'])
-# def get_top_tracks():
-#     '''
-#     Get the top N tracks by play count or total listening time for a user\n
-#     args:
-#         limit: number of records to return, default - 10
-#         sort_by: field to sort by, either 'play_count' or default 'total_ms_played'
-#         year: filter tracks by a specific year
-#         month: filter tracks by a specific month (1-12)
-#         date: filter tracks by a specific date (format: YYYY-MM-DD)
-#         artist: filter tracks by a specific artist name
-#     '''
-#     username = request.args.get('username', None)
-#     if username == None:
-#         return jsonify({'error': 'No username provided'}), 404
-    
-#     limit   = request.args.get('limit', 10, type=int)
-#     sort_by = request.args.get('sort_by', 'total_ms_played', type=str)
-#     year    = request.args.get('year', type=int)
-#     month   = request.args.get('month', type=int)
-#     date    = request.args.get('date', type=str)
-#     artist  = request.args.get('artist', type=str)
-
-#     sp = get_spotify_client()
-    
-#     # Sort by total listening time or play count
-#     sort_by = 'total_ms_played' if sort_by == 'total_ms_played' else 'play_count'
-
-#     # Base query
-#     query = db_session.query(
-#         StreamingHistory.master_metadata_track_name,
-#         StreamingHistory.master_metadata_album_artist_name,
-#         func.count(StreamingHistory.master_metadata_track_name).label('play_count'),
-#         func.sum(StreamingHistory.ms_played).label('total_ms_played'),
-#         StreamingHistory.spotify_track_uri,
-#     ).filter(
-#         StreamingHistory.master_metadata_track_name.isnot(None) and 
-#         StreamingHistory.username == username
-#     )
-
-#     # Apply filters
-#     if year:
-#         query = query.filter(extract('year', StreamingHistory.ts) == year)
-
-#     if month:
-#         query = query.filter(extract('month', StreamingHistory.ts) == month)
-
-#     if date:
-#         try:
-#             date_obj = datetime.strptime(date, '%Y-%m-%d')
-#             query = query.filter(extract('year', StreamingHistory.ts) == date_obj.year,
-#                                  extract('month', StreamingHistory.ts) == date_obj.month,
-#                                  extract('day', StreamingHistory.ts) == date_obj.day)
-#         except ValueError:
-#             return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
-
-#     if artist:
-#         query = query.filter(StreamingHistory.master_metadata_album_artist_name.ilike(f"%{artist}%"))
-
-#     # Group, order, and limit the query
-#     top_tracks = query.group_by(
-#         StreamingHistory.master_metadata_track_name, 
-#         StreamingHistory.master_metadata_album_artist_name
-#     ).order_by(desc(sort_by)).limit(limit).all()
-
-#     # Fetch album image from Spotify API and prepare the response
-#     return jsonify([{
-#         'index': index,
-#         'track_name': track[0],
-#         'artist': track[1],
-#         'play_count': track[2],
-#         'total_ms_played': track[3],
-#         'album_image_url': sp.track(track_id=track[4].replace("spotify:track:", ""))['album']['images'][0]['url'],
-#         'spotify_url': sp.track(track_id=track[4].replace("spotify:track:", ""))['album']['external_urls']['spotify']
-#     } for index, track in enumerate(top_tracks)])
-
-
-# @db_bp.route('/history/top-tracks', methods=['GET'])
-# def get_top_tracks():
-#     '''
-#     Get the top N tracks by play count or total listening time for a user\n
-#     args:
-#         limit: number of records to return, default - 10
-#         sort_by: field to sort by, either 'play_count' or default 'total_ms_played'
-#     '''
-#     limit   = request.args.get('limit', 10, type=int)
-#     sort_by = request.args.get('sort_by', 'total_ms_played', type=str)
-#     sp = get_spotify_client()
-    
-#     sort_by = 'total_ms_played' if sort_by == 'total_ms_played' else 'play_count'
-    
-#     top_tracks = db_session.query(
-#         StreamingHistory.master_metadata_track_name,
-#         StreamingHistory.master_metadata_album_artist_name,
-#         func.count(StreamingHistory.master_metadata_track_name).label('play_count'),
-#         func.sum(StreamingHistory.ms_played).label('total_ms_played'),
-#         StreamingHistory.spotify_track_uri,
-#     ).filter(
-#         StreamingHistory.master_metadata_track_name.isnot(None)
-#     ).group_by(
-#         StreamingHistory.master_metadata_track_name, 
-#         StreamingHistory.master_metadata_album_artist_name
-#     ).order_by(desc(sort_by)).limit(limit).all()
-
-#     return jsonify([{
-#         'index': index,
-#         'track_name': track[0],
-#         'artist': track[1],
-#         'play_count': track[2],
-#         'total_ms_played': track[3],
-#         'album_image_url': sp.track(track_id=track[4].replace("spotify:track:", ""))['album']['images'][0]['url']
-#     } for index,track in enumerate(top_tracks)])
-

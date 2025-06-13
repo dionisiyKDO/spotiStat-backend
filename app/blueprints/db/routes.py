@@ -215,76 +215,76 @@ def get_artist_stats(artist_name):
 
 # Route to get the top N artists by playtime with optional timeline data
 # TODO: the same for tracks
-@db_bp.route('/history/artists/top', methods=['GET'])
-def get_top_artists():
-    username = str(request.args.get('username', None))
-    print('requested history/artists/top : with username = ', username)
-    if username == None:
-        return jsonify({'error': 'No username provided'}), 404
+# @db_bp.route('/history/artists/top', methods=['GET'])
+# def get_top_artists():
+#     username = str(request.args.get('username', None))
+#     print('requested history/artists/top : with username = ', username)
+#     if username == None:
+#         return jsonify({'error': 'No username provided'}), 404
     
-    # Get parameters from request (default to top 10 and minimum 1 hour playtime)
-    top_n = int(request.args.get('limit', 10))
-    min_playtime_hours = float(request.args.get('min_playtime', 1))
+#     # Get parameters from request (default to top 10 and minimum 1 hour playtime)
+#     top_n = int(request.args.get('limit', 10))
+#     min_playtime_hours = float(request.args.get('min_playtime', 1))
     
-    # Convert minimum playtime to milliseconds
-    min_playtime_ms = min_playtime_hours * 60 * 60 * 1000
+#     # Convert minimum playtime to milliseconds
+#     min_playtime_ms = min_playtime_hours * 60 * 60 * 1000
 
-    # Query to get the top N artists by total playtime, filtered by minimum playtime
-    top_artists = (
-        db_session.query(
-            StreamingHistory.master_metadata_album_artist_name.label('artist_name'),
-            func.sum(StreamingHistory.ms_played).label('total_ms_played'),
-            func.count(StreamingHistory.ts).label('total_plays')
-        )
-        .filter(StreamingHistory.username == username)
-        .group_by(StreamingHistory.master_metadata_album_artist_name)
-        .having(func.sum(StreamingHistory.ms_played) >= min_playtime_ms)
-        .order_by(func.sum(StreamingHistory.ms_played).desc())
-        .limit(top_n)
-        .all()
-    )
+#     # Query to get the top N artists by total playtime, filtered by minimum playtime
+#     top_artists = (
+#         db_session.query(
+#             StreamingHistory.master_metadata_album_artist_name.label('artist_name'),
+#             func.sum(StreamingHistory.ms_played).label('total_ms_played'),
+#             func.count(StreamingHistory.ts).label('total_plays')
+#         )
+#         .filter(StreamingHistory.username == username)
+#         .group_by(StreamingHistory.master_metadata_album_artist_name)
+#         .having(func.sum(StreamingHistory.ms_played) >= min_playtime_ms)
+#         .order_by(func.sum(StreamingHistory.ms_played).desc())
+#         .limit(top_n)
+#         .all()
+#     )
 
-    # If no artists found, return an empty list
-    if not top_artists:
-        return jsonify({'error': 'No artists found with the specified criteria'}), 404
+#     # If no artists found, return an empty list
+#     if not top_artists:
+#         return jsonify({'error': 'No artists found with the specified criteria'}), 404
 
-    # Collect the artist data with optional daily timeline
-    top_artists_data = []
+#     # Collect the artist data with optional daily timeline
+#     top_artists_data = []
     
-    for artist in top_artists:
-        # Query to get daily play counts and total playtime for this artist (for each day)
-        play_counts = (
-            db_session.query(
-                func.date(StreamingHistory.ts).label('date'),
-                func.count(StreamingHistory.ts).label('play_count'),
-                func.sum(StreamingHistory.ms_played).label('total_ms_played')
-            )
-            .filter(StreamingHistory.master_metadata_album_artist_name == artist.artist_name)
-            .filter(StreamingHistory.username == username)
-            .group_by(func.date(StreamingHistory.ts))
-            .order_by(func.date(StreamingHistory.ts))
-            .all()
-        )
+#     for artist in top_artists:
+#         # Query to get daily play counts and total playtime for this artist (for each day)
+#         play_counts = (
+#             db_session.query(
+#                 func.date(StreamingHistory.ts).label('date'),
+#                 func.count(StreamingHistory.ts).label('play_count'),
+#                 func.sum(StreamingHistory.ms_played).label('total_ms_played')
+#             )
+#             .filter(StreamingHistory.master_metadata_album_artist_name == artist.artist_name)
+#             .filter(StreamingHistory.username == username)
+#             .group_by(func.date(StreamingHistory.ts))
+#             .order_by(func.date(StreamingHistory.ts))
+#             .all()
+#         )
 
-        # Convert daily play counts to a timeline list
-        timeline_data = [
-            {"date": str(play_count[0]), "play_count": play_count[1], "total_ms_played": play_count[2]}
-            for play_count in play_counts
-        ]
+#         # Convert daily play counts to a timeline list
+#         timeline_data = [
+#             {"date": str(play_count[0]), "play_count": play_count[1], "total_ms_played": play_count[2]}
+#             for play_count in play_counts
+#         ]
 
-        # Add artist data and timeline to the result
-        top_artists_data.append({
-            'artist_name': artist.artist_name,
-            'total_ms_played': artist.total_ms_played,
-            'total_plays': artist.total_plays,
-            'timeline_data': timeline_data  # Add the timeline here
-        })
+#         # Add artist data and timeline to the result
+#         top_artists_data.append({
+#             'artist_name': artist.artist_name,
+#             'total_ms_played': artist.total_ms_played,
+#             'total_plays': artist.total_plays,
+#             'timeline_data': timeline_data  # Add the timeline here
+#         })
 
-    return jsonify({
-        'top_n': top_n,
-        'min_playtime_hours': min_playtime_hours,
-        'artists': top_artists_data
-    })
+#     return jsonify({
+#         'top_n': top_n,
+#         'min_playtime_hours': min_playtime_hours,
+#         'artists': top_artists_data
+#     })
 
 # Route: Fetch tracks played more than {limit_count} times or {limit_play} milliseconds
 @db_bp.route('/history/played-tracks', methods=['GET'])

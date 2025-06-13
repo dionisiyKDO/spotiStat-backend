@@ -72,14 +72,6 @@ def get_all_records_by_album(album_name):
 # endregion
 
 
-# history/total-listening-time?username=<username>      - /stats/total-listening-time/<username>
-# history/platform-stats?username=<username>            - /stats/platform-stats/<username>
-# history/most-skipped-tracks?username=<username>       - /stats/most-skipped-tracks/<username>
-# history/skip-stats?username=<username>                - /stats/skip-stats/<username>
-# history/end-reasons?username=<username>               - /stats/end-reasons/<username>
-# history/unique-tracks-count?username=<username>       - /stats/unique-tracks-count/<username>
-# history/total-listening-time?username=<username> - 
-
 # Stats routes
 # region
 
@@ -167,6 +159,54 @@ def get_unique_tracks_count(username):
         return jsonify({'error': 'Stats not found. Please calculate stats first.'}), 404
     
     return jsonify(stats['unique_tracks_count'])
+
+@db_bp.route('/stats/top-artists/<username>', methods=['GET'])
+def get_top_artists(username):
+    """Get pre-calculated top artists"""
+    limit = request.args.get('limit', 10, type=int)
+    
+    stats = StatsManager.get_stats_for_user(username)
+    if not stats:
+        return jsonify({'error': 'Stats not found. Please calculate stats first.'}), 404
+    
+    return jsonify(stats['top_artists'][:limit])
+
+@db_bp.route('/stats/top-tracks/<username>', methods=['GET'])
+def get_top_tracks(username):
+    """Get pre-calculated top tracks"""
+    limit = request.args.get('limit', 10, type=int)
+    stats = StatsManager.get_stats_for_user(username)
+    if not stats:
+        return jsonify({'error': 'Stats not found. Please calculate stats first.'}), 404
+    
+    return jsonify(stats['top_tracks'][:limit])
+
+@db_bp.route('/stats/listening-by-hour/<username>', methods=['GET'])
+def get_listening_by_hour(username):
+    """Get pre-calculated listening patterns by hour"""
+    stats = StatsManager.get_stats_for_user(username)
+    if not stats:
+        return jsonify({'error': 'Stats not found. Please calculate stats first.'}), 404
+    
+    return jsonify(stats['listening_by_hour'])
+
+@db_bp.route('/stats/listening-by-month/<username>', methods=['GET'])
+def get_listening_by_month(username):
+    """Get pre-calculated listening patterns by month"""
+    stats = StatsManager.get_stats_for_user(username)
+    if not stats:
+        return jsonify({'error': 'Stats not found. Please calculate stats first.'}), 404
+    
+    return jsonify(stats['listening_by_month'])
+
+@db_bp.route('/stats/all/<username>', methods=['GET'])
+def get_all_stats(username):
+    """Get all pre-calculated stats for a user"""
+    stats = StatsManager.get_stats_for_user(username)
+    if not stats:
+        return jsonify({'error': 'Stats not found. Please calculate stats first.'}), 404
+    
+    return jsonify(stats)
 
 # endregion
 
@@ -374,81 +414,81 @@ def get_daily_trends():
 
 # endregion
 # TODO: add year sorting
-@db_bp.route('/history/top-tracks', methods=['GET'])
-def get_top_tracks():
-    '''
-    Get the top N tracks by play count or total listening time for a user\n
-    args:
-        limit: number of records to return, default - 10
-        sort_by: field to sort by, either 'play_count' or default 'total_ms_played'
-        year: filter tracks by a specific year
-        month: filter tracks by a specific month (1-12)
-        date: filter tracks by a specific date (format: YYYY-MM-DD)
-        artist: filter tracks by a specific artist name
-    '''
-    username = request.args.get('username', None)
-    if username == None:
-        return jsonify({'error': 'No username provided'}), 404
+# @db_bp.route('/history/top-tracks', methods=['GET'])
+# def get_top_tracks():
+#     '''
+#     Get the top N tracks by play count or total listening time for a user\n
+#     args:
+#         limit: number of records to return, default - 10
+#         sort_by: field to sort by, either 'play_count' or default 'total_ms_played'
+#         year: filter tracks by a specific year
+#         month: filter tracks by a specific month (1-12)
+#         date: filter tracks by a specific date (format: YYYY-MM-DD)
+#         artist: filter tracks by a specific artist name
+#     '''
+#     username = request.args.get('username', None)
+#     if username == None:
+#         return jsonify({'error': 'No username provided'}), 404
     
-    limit   = request.args.get('limit', 10, type=int)
-    sort_by = request.args.get('sort_by', 'total_ms_played', type=str)
-    year    = request.args.get('year', type=int)
-    month   = request.args.get('month', type=int)
-    date    = request.args.get('date', type=str)
-    artist  = request.args.get('artist', type=str)
+#     limit   = request.args.get('limit', 10, type=int)
+#     sort_by = request.args.get('sort_by', 'total_ms_played', type=str)
+#     year    = request.args.get('year', type=int)
+#     month   = request.args.get('month', type=int)
+#     date    = request.args.get('date', type=str)
+#     artist  = request.args.get('artist', type=str)
 
-    sp = get_spotify_client()
+#     sp = get_spotify_client()
     
-    # Sort by total listening time or play count
-    sort_by = 'total_ms_played' if sort_by == 'total_ms_played' else 'play_count'
+#     # Sort by total listening time or play count
+#     sort_by = 'total_ms_played' if sort_by == 'total_ms_played' else 'play_count'
 
-    # Base query
-    query = db_session.query(
-        StreamingHistory.master_metadata_track_name,
-        StreamingHistory.master_metadata_album_artist_name,
-        func.count(StreamingHistory.master_metadata_track_name).label('play_count'),
-        func.sum(StreamingHistory.ms_played).label('total_ms_played'),
-        StreamingHistory.spotify_track_uri,
-    ).filter(
-        StreamingHistory.master_metadata_track_name.isnot(None) and 
-        StreamingHistory.username == username
-    )
+#     # Base query
+#     query = db_session.query(
+#         StreamingHistory.master_metadata_track_name,
+#         StreamingHistory.master_metadata_album_artist_name,
+#         func.count(StreamingHistory.master_metadata_track_name).label('play_count'),
+#         func.sum(StreamingHistory.ms_played).label('total_ms_played'),
+#         StreamingHistory.spotify_track_uri,
+#     ).filter(
+#         StreamingHistory.master_metadata_track_name.isnot(None) and 
+#         StreamingHistory.username == username
+#     )
 
-    # Apply filters
-    if year:
-        query = query.filter(extract('year', StreamingHistory.ts) == year)
+#     # Apply filters
+#     if year:
+#         query = query.filter(extract('year', StreamingHistory.ts) == year)
 
-    if month:
-        query = query.filter(extract('month', StreamingHistory.ts) == month)
+#     if month:
+#         query = query.filter(extract('month', StreamingHistory.ts) == month)
 
-    if date:
-        try:
-            date_obj = datetime.strptime(date, '%Y-%m-%d')
-            query = query.filter(extract('year', StreamingHistory.ts) == date_obj.year,
-                                 extract('month', StreamingHistory.ts) == date_obj.month,
-                                 extract('day', StreamingHistory.ts) == date_obj.day)
-        except ValueError:
-            return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
+#     if date:
+#         try:
+#             date_obj = datetime.strptime(date, '%Y-%m-%d')
+#             query = query.filter(extract('year', StreamingHistory.ts) == date_obj.year,
+#                                  extract('month', StreamingHistory.ts) == date_obj.month,
+#                                  extract('day', StreamingHistory.ts) == date_obj.day)
+#         except ValueError:
+#             return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
 
-    if artist:
-        query = query.filter(StreamingHistory.master_metadata_album_artist_name.ilike(f"%{artist}%"))
+#     if artist:
+#         query = query.filter(StreamingHistory.master_metadata_album_artist_name.ilike(f"%{artist}%"))
 
-    # Group, order, and limit the query
-    top_tracks = query.group_by(
-        StreamingHistory.master_metadata_track_name, 
-        StreamingHistory.master_metadata_album_artist_name
-    ).order_by(desc(sort_by)).limit(limit).all()
+#     # Group, order, and limit the query
+#     top_tracks = query.group_by(
+#         StreamingHistory.master_metadata_track_name, 
+#         StreamingHistory.master_metadata_album_artist_name
+#     ).order_by(desc(sort_by)).limit(limit).all()
 
-    # Fetch album image from Spotify API and prepare the response
-    return jsonify([{
-        'index': index,
-        'track_name': track[0],
-        'artist': track[1],
-        'play_count': track[2],
-        'total_ms_played': track[3],
-        'album_image_url': sp.track(track_id=track[4].replace("spotify:track:", ""))['album']['images'][0]['url'],
-        'spotify_url': sp.track(track_id=track[4].replace("spotify:track:", ""))['album']['external_urls']['spotify']
-    } for index, track in enumerate(top_tracks)])
+#     # Fetch album image from Spotify API and prepare the response
+#     return jsonify([{
+#         'index': index,
+#         'track_name': track[0],
+#         'artist': track[1],
+#         'play_count': track[2],
+#         'total_ms_played': track[3],
+#         'album_image_url': sp.track(track_id=track[4].replace("spotify:track:", ""))['album']['images'][0]['url'],
+#         'spotify_url': sp.track(track_id=track[4].replace("spotify:track:", ""))['album']['external_urls']['spotify']
+#     } for index, track in enumerate(top_tracks)])
 
 
 # @db_bp.route('/history/top-tracks', methods=['GET'])
@@ -487,40 +527,3 @@ def get_top_tracks():
 #         'album_image_url': sp.track(track_id=track[4].replace("spotify:track:", ""))['album']['images'][0]['url']
 #     } for index,track in enumerate(top_tracks)])
 
-
-
-
-
-
-
-# LEGACY ROUTES - Original route names for backward compatibility
-# These now redirect to the new stats routes
-@db_bp.route('/history/total-listening-time', methods=['GET'])
-def get_total_listening_time_legacy():
-    """Legacy route - redirects to stats endpoint"""
-    return get_total_listening_time()
-
-@db_bp.route('/history/platform-stats', methods=['GET'])
-def get_platform_stats_legacy():
-    """Legacy route - redirects to stats endpoint"""
-    return get_platform_stats()
-
-@db_bp.route('/history/most-skipped-tracks', methods=['GET'])
-def get_most_skipped_tracks_legacy():
-    """Legacy route - redirects to stats endpoint"""
-    return get_most_skipped_tracks()
-
-@db_bp.route('/history/skip-stats', methods=['GET'])
-def get_skip_stats_legacy():
-    """Legacy route - redirects to stats endpoint"""
-    return get_skip_stats()
-
-@db_bp.route('/history/end-reasons', methods=['GET'])
-def get_end_reasons_legacy():
-    """Legacy route - redirects to stats endpoint"""
-    return get_end_reasons()
-
-@db_bp.route('/history/unique-tracks-count', methods=['GET'])
-def get_unique_tracks_count_legacy():
-    """Legacy route - redirects to stats endpoint"""
-    return get_unique_tracks_count()

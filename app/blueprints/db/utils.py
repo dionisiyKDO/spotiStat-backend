@@ -218,6 +218,15 @@ def get_listening_by_date(username):
     
     return jsonify(stats['listening_by_date'])
 
+@db_bp.route('/stats/<username>/longest-session', methods=['GET']) # 2300 to 40-90 / -2210ms response time
+def get_longest_session(username):
+    """Get pre-calculated listening patterns by date"""
+    stats = StatsManager.get_stats_for_user(username)
+    if not stats:
+        return jsonify({'error': 'Stats not found. Please calculate stats first.'}), 404
+    
+    return jsonify(stats['longest_session'])
+
 @db_bp.route('/stats/<username>/all', methods=['GET'])
 def get_all_stats(username):
     """Get all pre-calculated stats for a user"""
@@ -229,126 +238,4 @@ def get_all_stats(username):
 
 # endregion
 
-
-
-
-def process_sessions(sessions, time_gap_ms):
-    ''' Helper function to process listening sessions '''
-    result = []
-    session = []
-    previous_ts = None
-    session_start_time = None
-    total_ms_played = 0  # Track total playtime for each session
-
-    for record in sessions:
-        current_ts = record.ts
-
-        # Convert current timestamp to datetime if it's a string
-        if isinstance(current_ts, str):
-            current_ts = datetime.strptime(current_ts, '%Y-%m-%dT%H:%M:%SZ')
-
-        if previous_ts:
-            # Calculate time difference in milliseconds between consecutive tracks
-            time_diff_ms = (current_ts - previous_ts).total_seconds() * 1000
-
-            # If time difference is greater than the specified gap, end the current session
-            if time_diff_ms > time_gap_ms:
-                if session:
-                    # Append session details to the result before starting a new session
-                    result.append({
-                        'session_start': session_start_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                        'session_end': previous_ts.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                        'total_tracks': len(session),
-                        'total_ms_played': total_ms_played,
-                        'tracks': session
-                    })
-                # Reset session info for a new session
-                session = []
-                total_ms_played = 0
-
-        # If starting a new session, set the session start time
-        if not session:
-            session_start_time = current_ts
-
-        # Add the current track to the session
-        session.append({
-            'track_name': record.master_metadata_track_name,
-            'track_artist': record.master_metadata_album_artist_name,
-            'track_uri': record.spotify_track_uri,
-            'timestamp': current_ts.strftime('%Y-%m-%dT%H:%M:%SZ'),
-            'ms_played': record.ms_played
-        })
-
-        # Increment total ms played for the session
-        total_ms_played += record.ms_played
-
-        # Update previous timestamp
-        previous_ts = current_ts
-
-    # Append the last session if it exists
-    if session:
-        result.append({
-            'session_start': session_start_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
-            'session_end': previous_ts.strftime('%Y-%m-%dT%H:%M:%SZ'),
-            'total_tracks': len(session),
-            'total_ms_played': total_ms_played,
-            'tracks': session
-        })
-
-    return result
-
-@db_bp.route('/history/sessions', methods=['GET'])
-def get_listening_sessions():
-    ''' Get listening sessions and their statistics '''
-    username = request.args.get('username', None)
-    if username == None:
-        return jsonify({'error': 'No username provided'}), 404
-    
-    time_gap = request.args.get('gap', 30, type=int)  # Gap in minutes to separate sessions
-    time_gap_ms = time_gap * 60000
-
-    # Query to get tracks in order of timestamps
-    sessions = db_session.query(
-        StreamingHistory.id,
-        StreamingHistory.master_metadata_track_name,
-        StreamingHistory.master_metadata_album_artist_name,
-        StreamingHistory.spotify_track_uri,
-        StreamingHistory.ms_played,
-        StreamingHistory.ts
-    ).filter(StreamingHistory.username == username).order_by(StreamingHistory.ts).all()
-
-    # Process sessions using the helper function
-    result = process_sessions(sessions, time_gap_ms)
-
-    return jsonify(result)
-
-@db_bp.route('/history/sessions/longest', methods=['GET'])
-def get_longest_session():
-    ''' Get the longest listening session '''
-    username = request.args.get('username', None)
-    if username == None:
-        return jsonify({'error': 'No username provided'}), 404
-    
-    time_gap = request.args.get('gap', 30, type=int)  # Gap in minutes to separate sessions
-    time_gap_ms = time_gap * 60000
-
-    # Query to get tracks in order of timestamps
-    sessions = db_session.query(
-        StreamingHistory.id,
-        StreamingHistory.master_metadata_track_name,
-        StreamingHistory.master_metadata_album_artist_name,
-        StreamingHistory.spotify_track_uri,
-        StreamingHistory.ms_played,
-        StreamingHistory.ts
-    ).filter(StreamingHistory.username == username).order_by(StreamingHistory.ts).all()
-
-    # Process sessions
-    all_sessions = process_sessions(sessions, time_gap_ms)
-
-    # Find the longest session based on total_ms_played
-    if all_sessions:
-        longest_session = max(all_sessions, key=lambda s: s['total_ms_played'])
-        return jsonify(longest_session)
-
-    return jsonify({'error': 'No sessions found'}), 404
 

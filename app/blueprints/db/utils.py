@@ -1,6 +1,4 @@
 from flask import jsonify, request
-from sqlalchemy import func
-from datetime import datetime
 from app.database import db_session
 from app.models import StreamingHistory
 from app.utils.stats_manager import StatsManager
@@ -68,6 +66,7 @@ def get_all_records_by_album(album_name):
 # Stats routes
 # region
 
+# Meta
 @db_bp.route('/stats/<username>/calculate', methods=['POST'])
 def calculate_user_stats(username):
     """Trigger stats calculation for a user"""
@@ -91,6 +90,7 @@ def get_stats_status(username):
         'last_calculated': calculation_date.isoformat() if calculation_date else None
     })
 
+# Numbers
 @db_bp.route('/stats/<username>/total-listening-time', methods=['GET']) # 100 to 40 / -60ms response time
 def get_total_listening_time(username):
     ''' Display the total listening time in ms/min/hour/day '''

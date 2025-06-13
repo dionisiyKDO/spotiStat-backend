@@ -76,7 +76,7 @@ def get_all_records_by_album(album_name):
 # region
 
 # TODO: check if works
-@db_bp.route('/stats/calculate/<username>', methods=['POST'])
+@db_bp.route('/stats/<username>/calculate', methods=['POST'])
 def calculate_user_stats(username):
     """Trigger stats calculation for a user"""
     try:
@@ -88,7 +88,7 @@ def calculate_user_stats(username):
     except Exception as e:
         return jsonify({'error': f'Error calculating stats: {str(e)}'}), 500
 
-@db_bp.route('/stats/status/<username>', methods=['GET'])
+@db_bp.route('/stats/<username>/status', methods=['GET'])
 def get_stats_status(username):
     """Check if stats exist for a user and when they were last calculated"""
     exists = StatsManager.stats_exist_for_user(username)
@@ -99,7 +99,7 @@ def get_stats_status(username):
         'last_calculated': calculation_date.isoformat() if calculation_date else None
     })
 
-@db_bp.route('/stats/total-listening-time/<username>', methods=['GET']) # 100 to 40 / -60ms response time
+@db_bp.route('/stats/<username>/total-listening-time', methods=['GET']) # 100 to 40 / -60ms response time
 def get_total_listening_time(username):
     ''' Display the total listening time in ms/min/hour/day '''
     stats = StatsManager.get_stats_for_user(username)
@@ -108,7 +108,7 @@ def get_total_listening_time(username):
     
     return jsonify(stats['total_listening_time'])
 
-@db_bp.route('/stats/platform-stats/<username>', methods=['GET']) # 140 to 40 / -100ms response time
+@db_bp.route('/stats/<username>/platform-stats', methods=['GET']) # 140 to 40 / -100ms response time
 def get_platform_stats(username):
     ''' Display the total listening time and number of plays for each platform '''
     stats = StatsManager.get_stats_for_user(username)
@@ -117,7 +117,7 @@ def get_platform_stats(username):
     
     return jsonify(stats['platform_stats'])
 
-@db_bp.route('/stats/most-skipped-tracks/<username>', methods=['GET']) # 100 to 40 / -60ms response time
+@db_bp.route('/stats/<username>/most-skipped-tracks', methods=['GET']) # 100 to 40 / -60ms response time
 def get_most_skipped_tracks(username):
     ''' Get the most skipped tracks '''
     limit = request.args.get('limit', 10, type=int)
@@ -133,7 +133,7 @@ def get_most_skipped_tracks(username):
         **track
     } for index, track in enumerate(skipped_tracks)])
 
-@db_bp.route('/stats/skip-stats/<username>', methods=['GET']) # 120 to 40 / -80ms response time
+@db_bp.route('/stats/<username>/skip-stats', methods=['GET']) # 120 to 40 / -80ms response time
 def get_skip_stats(username):
     ''' Get the total number of plays and the number of skipped tracks + skip rate '''
     stats = StatsManager.get_stats_for_user(username)
@@ -142,7 +142,7 @@ def get_skip_stats(username):
     
     return jsonify(stats['skip_stats'])
 
-@db_bp.route('/stats/end-reasons/<username>', methods=['GET']) # 150 to 40 / -110ms response time
+@db_bp.route('/stats/<username>/end-reasons', methods=['GET']) # 150 to 40 / -110ms response time
 def get_end_reasons(username):
     ''' Get the number of times each end reason occurred '''
     stats = StatsManager.get_stats_for_user(username)
@@ -151,7 +151,7 @@ def get_end_reasons(username):
     
     return jsonify(stats['end_reasons'])
 
-@db_bp.route('/stats/unique-tracks-count/<username>', methods=['GET']) # 170 to 40 / -130ms response time
+@db_bp.route('/stats/<username>/unique-tracks-count', methods=['GET']) # 170 to 40 / -130ms response time
 def get_unique_tracks_count(username):
     ''' Get the number of unique tracks listened to '''
     stats = StatsManager.get_stats_for_user(username)
@@ -160,7 +160,7 @@ def get_unique_tracks_count(username):
     
     return jsonify(stats['unique_tracks_count'])
 
-@db_bp.route('/stats/top-artists/<username>', methods=['GET'])
+@db_bp.route('/stats/<username>/top-artists', methods=['GET'])
 def get_top_artists(username):
     """Get pre-calculated top artists"""
     limit = request.args.get('limit', 10, type=int)
@@ -171,7 +171,7 @@ def get_top_artists(username):
     
     return jsonify(stats['top_artists'][:limit])
 
-@db_bp.route('/stats/top-tracks/<username>', methods=['GET'])
+@db_bp.route('/stats/<username>/top-tracks', methods=['GET'])
 def get_top_tracks(username):
     """Get pre-calculated top tracks"""
     limit = request.args.get('limit', 10, type=int)
@@ -181,7 +181,7 @@ def get_top_tracks(username):
     
     return jsonify(stats['top_tracks'][:limit])
 
-@db_bp.route('/stats/listening-by-hour/<username>', methods=['GET'])
+@db_bp.route('/stats/<username>/listening-by-hour', methods=['GET'])
 def get_listening_by_hour(username):
     """Get pre-calculated listening patterns by hour"""
     stats = StatsManager.get_stats_for_user(username)
@@ -190,7 +190,7 @@ def get_listening_by_hour(username):
     
     return jsonify(stats['listening_by_hour'])
 
-@db_bp.route('/stats/listening-by-month/<username>', methods=['GET'])
+@db_bp.route('/stats/<username>/listening-by-month', methods=['GET'])
 def get_listening_by_month(username):
     """Get pre-calculated listening patterns by month"""
     stats = StatsManager.get_stats_for_user(username)
@@ -199,7 +199,7 @@ def get_listening_by_month(username):
     
     return jsonify(stats['listening_by_month'])
 
-@db_bp.route('/stats/all/<username>', methods=['GET'])
+@db_bp.route('/stats/<username>/all', methods=['GET'])
 def get_all_stats(username):
     """Get all pre-calculated stats for a user"""
     stats = StatsManager.get_stats_for_user(username)

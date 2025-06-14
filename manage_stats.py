@@ -70,7 +70,7 @@ def list_all_users():
 
 
 if __name__ == "__main__":
-    calculate_stats_for_all_users()
-    # calculate_stats_for_user('dionisiy')
+    # calculate_stats_for_all_users()
+    calculate_stats_for_user('dionisiy')
     # check_stats_status('dionisiy')
     # list_all_users()

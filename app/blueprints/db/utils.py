@@ -2,35 +2,31 @@ from flask import jsonify, request
 from app.database import db_session
 from app.models import StreamingHistory
 from app.utils.stats_manager import StatsManager
+from sqlalchemy import func, desc
 from . import db_bp
 
+MS_IN_DAY = 1000 * 60 * 60 * 24
+MS_IN_HOUR = 1000 * 60 * 60
+MS_IN_MINUTE = 1000 * 60
 
 # Record fetching
 # region 
 
-@db_bp.route('/history/<int:limit>', methods=['GET']) # TODO: questionable existance, but for know okay
-def get_all_records(limit: int):
+@db_bp.route('/history/<username>/<int:limit>', methods=['GET']) # TODO: questionable existance, but for now okay
+def get_all_records(username: str, limit: int):
     ''' 
     Retrieve the listening history from head for <username>
         limit: number of records to return
     '''
-    username = str(request.args.get('username', None))
-    if not username:
-        return jsonify({'error': 'No username provided'}), 404
-    
     records = db_session.query(StreamingHistory).filter(StreamingHistory.username == username).limit(limit).all()
     return jsonify([record.to_dict() for record in records])
 
-@db_bp.route('/history/artist/<string:artist_name>', methods=['GET'])
-def get_all_records_by_artist(artist_name: str):
+@db_bp.route('/history/<username>/artist/<string:artist_name>', methods=['GET'])
+def get_all_records_by_artist(username: str, artist_name: str):
     '''
     Retrieve all records for <username> filtered by artist name
         artist_name: name of the artist to search for
     '''
-    username = str(request.args.get('username', None))
-    if not username:
-        return jsonify({'error': 'No username provided'}), 404
-
     records = db_session.query(StreamingHistory).filter(
         (StreamingHistory.username == username) &
         (StreamingHistory.master_metadata_album_artist_name.ilike(f'%{artist_name}%'))
@@ -38,10 +34,8 @@ def get_all_records_by_artist(artist_name: str):
     
     if not records:
         return jsonify({'error': f'Records with artist name "{artist_name}" for user "{username}" not found'}), 404
-    
-    return jsonify([record.to_dict() for record in records])
 
-@db_bp.route('/history/album/<string:album_name>', methods=['GET'])
+@db_bp.route('/history/<username>/album/<string:album_name>', methods=['GET'])
 def get_all_records_by_album(album_name):
     '''
     Retrieve all records for <username> filtered by album name
@@ -239,3 +233,54 @@ def get_all_stats(username):
 # endregion
 
 
+
+@db_bp.route('/stats/<username>/listened-tracks', methods=['GET'])
+def get_most_tracks(username):
+    """Get all pre-calculated stats for a user"""
+    top_tracks = db_session.query(
+        StreamingHistory.master_metadata_track_name,
+        StreamingHistory.master_metadata_album_artist_name,
+        func.count(StreamingHistory.id).label('play_count'),
+        func.sum(StreamingHistory.ms_played).label('total_ms_played'),
+        StreamingHistory.spotify_track_uri,
+    ).filter(
+        (StreamingHistory.username == username) &
+        (StreamingHistory.master_metadata_track_name != 0) # filtering episodes/podcasts
+    ).group_by(
+        StreamingHistory.master_metadata_track_name,
+        StreamingHistory.master_metadata_album_artist_name
+    ).having(
+        func.sum(StreamingHistory.ms_played) > MS_IN_MINUTE * 10 # 10 minutes
+    ).order_by(desc('total_ms_played')).all()
+    
+    return jsonify([{
+        'track_name': track[0],
+        'artist': track[1],
+        'play_count': track[2],
+        'total_ms_played': track[3] or 0,
+        'total_hours': round(((track[3] or 0) / MS_IN_HOUR), 2),
+        'spotify_track_uri': track[4],
+    } for track in top_tracks])
+    
+@db_bp.route('/stats/<username>/listened-artists', methods=['GET'])
+def get_most_artists(username):
+    """Get all pre-calculated stats for a user"""
+    top_artists = db_session.query(
+        StreamingHistory.master_metadata_album_artist_name,
+        func.count(StreamingHistory.id).label('play_count'),
+        func.sum(StreamingHistory.ms_played).label('total_ms_played'),
+        StreamingHistory.spotify_track_uri,
+    ).filter(
+        StreamingHistory.username == username
+    ).group_by(
+        StreamingHistory.master_metadata_album_artist_name
+    ).having(
+        func.sum(StreamingHistory.ms_played) > MS_IN_MINUTE * 10 # 10 minutes
+    ).order_by(desc('total_ms_played')).all()
+    
+    return jsonify([{
+        'artist': artist[0],
+        'play_count': artist[1],
+        'total_ms_played': artist[2] or 0,
+        'total_hours': round(((artist[2] or 0) / MS_IN_HOUR), 2)
+    } for artist in top_artists])

@@ -1,8 +1,8 @@
 from flask import redirect, request, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from app.utils.upload_utils import *
-from app.config import Config
+from app.database import db_session
+from app.models import User
 from . import auth_bp
 
 
@@ -94,7 +94,4 @@ def login_required(f):
         return f(*args, **kwargs)
     decorated_function.__name__ = f.__name__
     return decorated_function
-
-
-
 

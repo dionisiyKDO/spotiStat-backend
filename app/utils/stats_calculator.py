@@ -136,7 +136,7 @@ class SpotifyStatsCalculator:
             func.count(StreamingHistory.reason_end).label('count')
         ).filter(StreamingHistory.username == self.username).group_by(
             StreamingHistory.reason_end
-        ).all()
+        ).order_by(desc('count')).all()
         
         return [{
             'reason_end': reason[0],
@@ -161,7 +161,7 @@ class SpotifyStatsCalculator:
             StreamingHistory.username == self.username
         ).group_by(
             StreamingHistory.master_metadata_album_artist_name
-        ).order_by(desc('play_count')).limit(limit).all()
+        ).order_by(desc('total_ms_played')).limit(limit).all()
         
         return [{
             'artist': artist[0],
@@ -183,13 +183,14 @@ class SpotifyStatsCalculator:
         ).group_by(
             StreamingHistory.master_metadata_track_name,
             StreamingHistory.master_metadata_album_artist_name
-        ).order_by(desc('play_count')).limit(limit).all()
+        ).order_by(desc('total_ms_played')).limit(limit).all()
         
         return [{
             'track_name': track[0],
             'artist': track[1],
             'play_count': track[2],
             'total_ms_played': track[3] or 0,
+            'total_hours': (track[3] or 0) / MS_IN_HOUR,
             'spotify_track_uri': track[4],
         } for track in top_tracks]
     
@@ -243,24 +244,20 @@ class SpotifyStatsCalculator:
         from sqlalchemy import extract
         
         monthly_stats = db_session.query(
-            extract('year', StreamingHistory.ts).label('year'),
-            extract('month', StreamingHistory.ts).label('month'),
+            func.strftime('%Y-%m', StreamingHistory.ts).label('month'),
             func.count(StreamingHistory.id).label('play_count'),
             func.sum(StreamingHistory.ms_played).label('total_ms_played'),
         ).filter(
             StreamingHistory.username == self.username
-        ).group_by(
-            extract('year', StreamingHistory.ts),
-            extract('month', StreamingHistory.ts)
-        ).order_by('year', 'month').all()
+        ).group_by(func.strftime('%Y-%m', StreamingHistory.ts).label('month'),
+        ).order_by(func.strftime('%Y-%m', StreamingHistory.ts).label('month'),).all()
         
         return [{
-            'year': int(stat[0]) if stat[0] is not None else 0,
-            'month': int(stat[1]) if stat[1] is not None else 0,
-            'play_count': stat[2],
-            'total_ms_played': stat[3] or 0,
+            'month': stat[0],
+            'play_count': stat[1],
+            'total_ms_played': stat[2] or 0,
         } for stat in monthly_stats]
-        
+
     def _calculate_listening_by_year(self):
         """Calculate listening patterns by year"""
         from sqlalchemy import extract
@@ -280,7 +277,7 @@ class SpotifyStatsCalculator:
             'play_count': stat[1],
             'total_ms_played': stat[2] or 0,
         } for stat in monthly_stats]
-        
+
     def _calculate_listening_by_date(self):
         """Calculate listening patterns by exact date (e.g. 01-02-2021)"""
         

@@ -46,9 +46,9 @@ class SpotifyStatsCalculator:
         
         return {
             'total_listening_ms': total_ms,
-            'total_listening_minutes': total_ms / MS_IN_MINUTE,
-            'total_listening_hours': total_ms / MS_IN_HOUR,
-            'total_listening_days': total_ms / MS_IN_DAY,
+            'total_listening_minutes': round((total_ms / MS_IN_MINUTE), 2),
+            'total_listening_hours': round((total_ms / MS_IN_HOUR), 2),
+            'total_listening_days': round((total_ms / MS_IN_DAY), 2),
         }
     
     def _calculate_platform_stats(self):
@@ -167,7 +167,7 @@ class SpotifyStatsCalculator:
             'artist': artist[0],
             'play_count': artist[1],
             'total_ms_played': artist[2] or 0,
-            'total_hours': (artist[2] or 0) / MS_IN_HOUR
+            'total_hours': round((artist[2] / MS_IN_HOUR), 2)
         } for artist in top_artists]
     
     def _calculate_top_tracks(self, limit=50):
@@ -190,7 +190,7 @@ class SpotifyStatsCalculator:
             'artist': track[1],
             'play_count': track[2],
             'total_ms_played': track[3] or 0,
-            'total_hours': (track[3] or 0) / MS_IN_HOUR,
+            'total_hours': round((track[3] / MS_IN_HOUR), 2),
             'spotify_track_uri': track[4],
         } for track in top_tracks]
     

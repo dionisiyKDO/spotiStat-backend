@@ -2,7 +2,8 @@ from flask import jsonify, request
 from app.database import db_session
 from app.models import StreamingHistory
 from app.utils.stats_manager import StatsManager
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, extract, case
+from datetime import datetime
 from . import db_bp
 
 MS_IN_DAY = 1000 * 60 * 60 * 24
@@ -261,7 +262,105 @@ def get_most_tracks(username):
         'total_hours': round(((track[3] or 0) / MS_IN_HOUR), 2),
         'spotify_track_uri': track[4],
     } for track in top_tracks])
+
+@db_bp.route('/stats/<username>/track/<track_id>', methods=['GET'])
+def get_track_stats(username, track_id):
+    track_uri = f"spotify:track:{track_id}"
+    base_filter = (
+        (StreamingHistory.username == username) &
+        (StreamingHistory.spotify_track_uri == track_uri)
+    )
     
+    # Get overall track statistics
+    # aka: everything_else
+    overall_stats = (
+        db_session.query(
+            func.sum(StreamingHistory.ms_played).label('total_ms_played'),
+            func.count(StreamingHistory.ts).label('total_plays'),
+            func.min(StreamingHistory.ts).label('first_played'),
+            func.max(StreamingHistory.ts).label('last_played'),
+            func.count(func.distinct(func.date(StreamingHistory.ts))).label('distinct_days_played')
+        )
+        .filter(base_filter)
+        .one()
+    )
+    
+    if not overall_stats.total_plays:
+        return jsonify({'error': 'No stats available for this track'}), 404
+
+    # Get daily play stats and overall track stats in one query
+    # aka: timeline_data
+    daily_stats = (
+        db_session.query(
+            func.date(StreamingHistory.ts).label('date'),
+            func.count(StreamingHistory.ts).label('play_count'),
+            func.sum(StreamingHistory.ms_played).label('total_ms_played')
+        )
+        .filter(base_filter)
+        .group_by(func.date(StreamingHistory.ts))
+        .order_by(func.date(StreamingHistory.ts))
+        .all()
+    )
+
+    # Format response data
+    timeline_data = [
+        {
+            "date": str(day.date),
+            "play_count": day.play_count,
+            "total_ms_played": day.total_ms_played
+        }
+        for day in daily_stats
+    ]
+
+    avg_playtime = (
+        overall_stats.total_ms_played / overall_stats.total_plays 
+        if overall_stats.total_plays > 0 else 0
+    )
+    
+    # calculate most certain track length
+    # group play instances by ms_played, count the number of that number appearing
+    #   sort by most frequent, and it is most certain the track that started and ended naturally
+    estimated_track_length = (
+        db_session.query(
+            StreamingHistory.ms_played,
+            func.count(StreamingHistory.ms_played).label('count')
+        )
+        .filter(
+            (StreamingHistory.username == username) &
+            (StreamingHistory.spotify_track_uri == track_uri) &
+            (StreamingHistory.reason_end == 'trackdone')
+        )
+        .group_by(StreamingHistory.ms_played)
+        .order_by(desc(func.count(StreamingHistory.ms_played)))
+        .first()
+    )
+    
+    # Format datetime strings
+    first_played = (
+        datetime.strptime(overall_stats.first_played, '%Y-%m-%dT%H:%M:%SZ')
+        if isinstance(overall_stats.first_played, str) else overall_stats.first_played
+    )
+    last_played = (
+        datetime.strptime(overall_stats.last_played, '%Y-%m-%dT%H:%M:%SZ')
+        if isinstance(overall_stats.last_played, str) else overall_stats.last_played
+    )
+    
+    first_played_str = first_played.strftime('%Y-%m-%d %H:%M:%S') if first_played else None
+    last_played_str = last_played.strftime('%Y-%m-%d %H:%M:%S') if last_played else None
+
+    return jsonify({
+        'track_id': track_id,
+        'timeline_data': timeline_data,
+        'total_ms_played': overall_stats.total_ms_played,
+        'total_plays': overall_stats.total_plays,
+        'distinct_days_played': overall_stats.distinct_days_played,
+        'first_played': first_played_str,
+        'last_played': last_played_str,
+        'avg_playtime_per_play': avg_playtime,
+        'song_length': estimated_track_length.ms_played,
+    })
+
+
 @db_bp.route('/stats/<username>/listened-artists', methods=['GET'])
 def get_most_artists(username):
     """Get all pre-calculated stats for a user"""
@@ -284,3 +383,103 @@ def get_most_artists(username):
         'total_ms_played': artist[2] or 0,
         'total_hours': round(((artist[2] or 0) / MS_IN_HOUR), 2)
     } for artist in top_artists])
+
+@db_bp.route('/stats/<username>/artist/<artist_name>', methods=['GET'])
+def get_artist_stats(username, artist_name):
+    base_filter = (
+        (StreamingHistory.username == username) &
+        (StreamingHistory.master_metadata_album_artist_name == artist_name)
+    )
+    
+    # Get overall artist statistics
+    overall_stats = (
+        db_session.query(
+            func.sum(StreamingHistory.ms_played).label('total_ms_played'),
+            func.count(StreamingHistory.ts).label('total_plays'),
+            func.min(StreamingHistory.ts).label('first_played'),
+            func.max(StreamingHistory.ts).label('last_played'),
+            func.count(func.distinct(func.date(StreamingHistory.ts))).label('distinct_days_played')
+        )
+        .filter(base_filter)
+        .one()
+    )
+    
+    if not overall_stats.total_plays:
+        return jsonify({'error': f'No stats available for artist: {artist_name}'}), 404
+    
+    # Get daily play stats
+    daily_stats = (
+        db_session.query(
+            func.date(StreamingHistory.ts).label('date'),
+            func.count(StreamingHistory.ts).label('play_count'),
+            func.sum(StreamingHistory.ms_played).label('total_ms_played')
+        )
+        .filter(base_filter)
+        .group_by(func.date(StreamingHistory.ts))
+        .order_by(func.date(StreamingHistory.ts))
+        .all()
+    )
+    
+    # Format timeline data
+    timeline_data = [
+        {
+            "date": str(day.date),
+            "play_count": day.play_count,
+            "total_ms_played": day.total_ms_played
+        }
+        for day in daily_stats
+    ]
+    
+    # Calculate average playtime
+    avg_playtime = (
+        overall_stats.total_ms_played / overall_stats.total_plays
+        if overall_stats.total_plays > 0 else 0
+    )
+    
+    # Format datetime strings
+    first_played = (
+        datetime.strptime(overall_stats.first_played, '%Y-%m-%dT%H:%M:%SZ')
+        if isinstance(overall_stats.first_played, str) else overall_stats.first_played
+    )
+    last_played = (
+        datetime.strptime(overall_stats.last_played, '%Y-%m-%dT%H:%M:%SZ')
+        if isinstance(overall_stats.last_played, str) else overall_stats.last_played
+    )
+    
+    first_played_str = first_played.strftime('%Y-%m-%d %H:%M:%S') if first_played else None
+    last_played_str = last_played.strftime('%Y-%m-%d %H:%M:%S') if last_played else None
+    
+    return jsonify({
+        'artist_name': artist_name,
+        'timeline_data': timeline_data,
+        'total_ms_played': overall_stats.total_ms_played,
+        'total_plays': overall_stats.total_plays,
+        'distinct_days_played': overall_stats.distinct_days_played,
+        'first_played': first_played_str,
+        'last_played': last_played_str,
+        'avg_playtime_per_play': avg_playtime
+    })
+
+@db_bp.route('/stats/<username>/artist/<artist_name>/listened-tracks', methods=['GET'])
+def get_artists_tracks(username, artist_name):
+    """Get all pre-calculated stats for a user"""
+    top_tracks = db_session.query(
+        StreamingHistory.master_metadata_track_name,
+        func.count(StreamingHistory.id).label('play_count'),
+        func.sum(StreamingHistory.ms_played).label('total_ms_played'),
+        StreamingHistory.spotify_track_uri,
+    ).filter(
+        (StreamingHistory.username == username) &
+        (StreamingHistory.master_metadata_album_artist_name == artist_name)
+    ).group_by(
+        StreamingHistory.master_metadata_track_name
+    ).order_by(desc('total_ms_played')).all()
+    
+    return jsonify([{
+        'track_name': track[0],
+        'play_count': track[1],
+        'total_ms_played': track[2] or 0,
+        'total_hours': round(((track[2] or 0) / MS_IN_HOUR), 2),
+        'spotify_track_uri': track[3],
+    } for track in top_tracks])
+

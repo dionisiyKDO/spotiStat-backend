@@ -157,17 +157,19 @@ class SpotifyStatsCalculator:
             StreamingHistory.master_metadata_album_artist_name,
             func.count(StreamingHistory.id).label('play_count'),
             func.sum(StreamingHistory.ms_played).label('total_ms_played'),
+            func.count(distinct(StreamingHistory.master_metadata_track_name)).label('distinct_track_count')
         ).filter(
             StreamingHistory.username == self.username
         ).group_by(
             StreamingHistory.master_metadata_album_artist_name
         ).order_by(desc('total_ms_played')).limit(limit).all()
-        
+
         return [{
             'artist': artist[0],
             'play_count': artist[1],
             'total_ms_played': artist[2] or 0,
-            'total_hours': round((artist[2] / MS_IN_HOUR), 2)
+            'total_hours': round((artist[2] / MS_IN_HOUR), 2),
+            'distinct_track_count': artist[3]
         } for artist in top_artists]
     
     def _calculate_top_tracks(self, limit=50):

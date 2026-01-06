@@ -1,8 +1,8 @@
 from flask import Flask
 
-from app.config import Config
+from flask_app.config import Config
 
-from app.blueprints.db import db_bp
+from flask_app.blueprints.db import db_bp
 
 
 def create_app():

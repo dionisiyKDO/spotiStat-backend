@@ -2,10 +2,10 @@ from flask import jsonify, request
 from sqlalchemy import func, desc
 from datetime import datetime
 
-from app.utils.stats_manager import StatsManager
-from app.utils.upload_utils import read_json_and_store_data
-from app.models import StreamingHistory
-from app.database import db_session
+from flask_app.utils.stats_manager import StatsManager
+from flask_app.utils.upload_utils import read_json_and_store_data
+from flask_app.models import StreamingHistory
+from flask_app.database import db_session
 from . import db_bp
 
 MS_IN_DAY = 1000 * 60 * 60 * 24

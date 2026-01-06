@@ -6,8 +6,8 @@ from datetime import datetime
 
 from sqlalchemy.exc import IntegrityError
 
-from app.database import db_session, init_db
-from app.models import StreamingHistory, User
+from flask_app.database import db_session, init_db
+from flask_app.models import StreamingHistory, User
 
 init_db()
 

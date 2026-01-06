@@ -8,6 +8,7 @@ test.txt
 main.ipynb
 settings.json
 app/data/*
+flask_app/data/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

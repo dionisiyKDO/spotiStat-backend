@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker, declarative_base
 import os
 
-from app.config import Config
+from flask_app.config import Config
 
 engine = create_engine(Config.SQLALCHEMY_DATABASE_URI, pool_size=20, max_overflow=0)
 db_session = scoped_session(sessionmaker(autocommit=False,
@@ -13,7 +13,7 @@ Base.query = db_session.query_property()
 
 
 def init_db():
-    import app.models
+    import flask_app.models
     Base.metadata.create_all(bind=engine)
     
     # manually drop table User

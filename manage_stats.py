@@ -1,6 +1,6 @@
-from app.utils.stats_manager import StatsManager
-from app.models import StreamingHistory
-from app.database import db_session
+from flask_app.utils.stats_manager import StatsManager
+from flask_app.models import StreamingHistory
+from flask_app.database import db_session
 from sqlalchemy import distinct
 
 def calculate_stats_for_user(username):

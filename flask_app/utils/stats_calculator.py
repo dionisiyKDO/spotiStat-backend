@@ -2,8 +2,8 @@ from sqlalchemy import func, desc, distinct
 from datetime import datetime
 import json
 
-from app.models import StreamingHistory, UserStats 
-from app.database import db_session
+from flask_app.models import StreamingHistory, UserStats 
+from flask_app.database import db_session
 
 MS_IN_DAY = 1000 * 60 * 60 * 24
 MS_IN_HOUR = 1000 * 60 * 60

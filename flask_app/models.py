@@ -5,7 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 import pytz
 
-from app.database import Base
+from flask_app.database import Base
 
 utc_plus_3 = pytz.timezone('Etc/GMT-3')
 

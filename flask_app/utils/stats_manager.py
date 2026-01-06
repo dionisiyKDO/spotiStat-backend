@@ -1,6 +1,6 @@
-from app.utils.stats_calculator import SpotifyStatsCalculator
-from app.models import UserStats, StreamingHistory
-from app.database import db_session
+from flask_app.utils.stats_calculator import SpotifyStatsCalculator
+from flask_app.models import UserStats, StreamingHistory
+from flask_app.database import db_session
 from sqlalchemy import distinct
 import json
 

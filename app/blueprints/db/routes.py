@@ -3,6 +3,7 @@ from sqlalchemy import func, desc
 from datetime import datetime
 
 from app.utils.stats_manager import StatsManager
+from app.utils.upload_utils import read_json_and_store_data
 from app.models import StreamingHistory
 from app.database import db_session
 from . import db_bp
@@ -63,7 +64,16 @@ def get_all_records_by_album(album_name):
 # region
 
 # Meta
-@db_bp.route('/stats/<username>/calculate', methods=['POST'])
+@db_bp.route('/stats/<username>/save_files', methods=['GET'])
+def save_stats_to_files(username):
+    """Trigger saving stats to files for a user"""
+    try:
+        read_json_and_store_data(f'app/data/{username}', 'dionisiy')
+        return jsonify({'message': f'Stats files saved successfully for {username}'})
+    except Exception as e:
+        return jsonify({'error': f'Error saving stats files: {str(e)}'}), 500
+
+@db_bp.route('/stats/<username>/calculate', methods=['GET'])
 def calculate_user_stats(username):
     """Trigger stats calculation for a user"""
     try:

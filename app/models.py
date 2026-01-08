@@ -1,9 +1,61 @@
 # app/models.py
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import Column, Integer, String, Boolean, Text, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+import json
+
 from app.database import Base
 
 import pytz
 utc_plus_3 = pytz.timezone('Etc/GMT-3')
+
+
+# User based on local username and password
+class User(Base):
+    __tablename__ = 'users'
+    
+    id = Column(Integer, primary_key=True)
+    username = Column(String(80), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    
+    stats = relationship(
+        "UserStats",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        uselist=False,  # one-to-one; remove if need history
+    )
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+
+class UserStats(Base):
+    __tablename__ = 'user_stats'
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,  # one-to-one; remove if many stats per user
+    )
+    
+    user = relationship("User", back_populates="stats")
+    
+    stats_data = Column(Text, nullable=False)  # JSON string of all stats
+    calculated_at = Column(DateTime, nullable=False)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.user.username,
+            'stats_data': json.loads(self.stats_data),
+            'calculated_at': self.calculated_at.isoformat() if self.calculated_at else None
+        }
+
 
 class StreamingHistory(Base):
     __tablename__ = 'streaming_history'

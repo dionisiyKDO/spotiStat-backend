@@ -1,5 +1,5 @@
 from app.utils.stats_calculator import SpotifyStatsCalculator
-from app.models import UserStats, StreamingHistory
+from app.models import User, UserStats, StreamingHistory
 from sqlalchemy.orm import Session
 from sqlalchemy import distinct
 import json
@@ -14,30 +14,42 @@ class StatsManager:
     @staticmethod
     def get_stats_for_user(username: str, db: Session):
         """Get pre-calculated stats for a user"""
-        user_stats = db.query(UserStats).filter(
-            UserStats.username == username
-        ).first()
+        user = db.query(User).filter(User.username == username).first()
+        if user:
+            user_stats = db.query(UserStats).filter(
+                UserStats.user == user
+            ).first()
         
-        if not user_stats:
+            if not user_stats:
+                return None
+            
+            return json.loads(user_stats.stats_data)
+        else:
             return None
-        
-        return json.loads(user_stats.stats_data)
     
     @staticmethod
     def stats_exist_for_user(username: str, db: Session):
         """Check if stats exist for a user"""
-        return db.query(UserStats).filter(
-            UserStats.username == username
-        ).first() is not None
+        user = db.query(User).filter(User.username == username).first()
+        if user:
+            return db.query(UserStats).filter(
+                UserStats.user == user
+            ).first() is not None
+        else: 
+            return False
     
     @staticmethod
     def get_stats_calculation_date(username: str, db: Session):
         """Get when stats were last calculated for a user"""
-        user_stats = db.query(UserStats).filter(
-            UserStats.username == username
-        ).first()
-        
-        return user_stats.calculated_at if user_stats else None
+        user = db.query(User).filter(User.username == username).first()
+        if user:
+            user_stats = db.query(UserStats).filter(
+                UserStats.user == user
+            ).first()
+            
+            return user_stats.calculated_at if user_stats else None
+        else: 
+            return None
 
     @staticmethod
     def calculate_all_users_stats(self, db: Session):

@@ -4,7 +4,7 @@ from pathlib import Path
 class Config:
     BASE_DIR = Path(__file__).resolve().parent
     DATA_DIR = BASE_DIR / "data"
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///app/data/streaming_history.db'
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///app/data/history.db'
     str_datetime_format = '%Y-%m-%dT%H:%M:%S.%fZ'
     
     def __str__(self):

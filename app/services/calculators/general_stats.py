@@ -4,17 +4,16 @@ import datetime
 import json
 
 from app.models import StreamingHistory, UserStats, User
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash
 
 MS_IN_DAY = 1000 * 60 * 60 * 24
 MS_IN_HOUR = 1000 * 60 * 60
 MS_IN_MINUTE = 1000 * 60
 
-class SpotifyStatsCalculator:
+class GeneralStatsCalculator:
     def __init__(self, username: str, db: Session):
         self.db = db
         self.username = username
-        print(self.db, self.username)
         
     def calculate_all_stats(self):
         """Calculate all statistics for a user and save them to database"""

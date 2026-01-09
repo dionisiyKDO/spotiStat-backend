@@ -2,7 +2,7 @@
 import os
 
 from app.database import SessionLocal, engine, Base
-from app.services import bulk_import_history
+from app.services.services import bulk_import_history
 from app.config import Config
 
 def create_tables():

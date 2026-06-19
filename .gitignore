@@ -8,6 +8,7 @@ test.txt
 main.ipynb
 settings.json
 app/data/*
+.gitconfig
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

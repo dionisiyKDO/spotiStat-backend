@@ -1,5 +1,0 @@
-Flask
-spotipy
-pandas
-matplotlib
-python-dotenv

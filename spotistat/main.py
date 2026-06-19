@@ -1,21 +1,16 @@
-"""FastAPI application factory."""
+"""FastAPI application entry point."""
 
 from fastapi import FastAPI
 
+from spotistat.api import stats
 from spotistat.db.session import init_db
 
+app = FastAPI(title="SpotiStat API", version="0.1.0")
+init_db()
 
-def create_app() -> FastAPI:
-    app = FastAPI(title="SpotiStat API", version="0.1.0")
-
-    init_db()
-
-    @app.get("/health", tags=["meta"])
-    def health() -> dict[str, str]:
-        return {"status": "ok"}
-
-    # Routers (history, stats, admin) are wired in subsequent steps.
-    return app
+app.include_router(stats.router)
 
 
-app = create_app()
+@app.get("/health", tags=["meta"])
+def health() -> dict[str, str]:
+    return {"status": "ok"}

@@ -17,11 +17,8 @@ from sqlalchemy import delete, insert, select
 from sqlalchemy.orm import Session
 
 from spotistat.config import get_settings
+from spotistat.constants import MS_IN_DAY, MS_IN_HOUR, MS_IN_MINUTE
 from spotistat.db.models import Listen, StatEntry
-
-MS_IN_MINUTE = 60_000
-MS_IN_HOUR = 3_600_000
-MS_IN_DAY = 86_400_000
 
 TOP_LIMIT = 50
 SESSION_GAP_SECONDS = 30 * 60
@@ -46,7 +43,21 @@ def load_dashboard(db: Session, username: str) -> dict[str, Any] | None:
     return {
         "username": username,
         "computed_at": rows[0].computed_at,
+        "range": [None, None],
         "stats": {row.stat_key: row.payload for row in rows},
+    }
+
+
+def dashboard_for_period(
+    db: Session, username: str, start: int | None, end: int | None
+) -> dict[str, Any]:
+    """Compute the dashboard bundle live for a date range (not stored)."""
+    tz = ZoneInfo(get_settings().timezone)
+    return {
+        "username": username,
+        "computed_at": int(time.time()),
+        "range": [start, end],
+        "stats": calculate_all(db, username, tz, start=start, end=end),
     }
 
 
@@ -68,21 +79,28 @@ def save_stats(db: Session, username: str, stats: dict[str, Any]) -> int:
 # --- calculation --------------------------------------------------------------
 
 
-def calculate_all(db: Session, username: str, tz: ZoneInfo) -> dict[str, Any]:
-    rows = db.execute(
-        select(
-            Listen.played_at,
-            Listen.ms_played,
-            Listen.artist_name,
-            Listen.track_name,
-            Listen.track_uri,
-            Listen.platform,
-            Listen.reason_end,
-            Listen.skipped,
-        )
-        .where(Listen.username == username)
-        .order_by(Listen.played_at)
-    ).all()
+def calculate_all(
+    db: Session,
+    username: str,
+    tz: ZoneInfo,
+    start: int | None = None,
+    end: int | None = None,
+) -> dict[str, Any]:
+    stmt = select(
+        Listen.played_at,
+        Listen.ms_played,
+        Listen.artist_name,
+        Listen.track_name,
+        Listen.track_uri,
+        Listen.platform,
+        Listen.reason_end,
+        Listen.skipped,
+    ).where(Listen.username == username)
+    if start is not None:
+        stmt = stmt.where(Listen.played_at >= start)
+    if end is not None:
+        stmt = stmt.where(Listen.played_at < end)
+    rows = db.execute(stmt.order_by(Listen.played_at)).all()
 
     return {
         "total_listening_time": _total_listening_time(rows),

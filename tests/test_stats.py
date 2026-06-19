@@ -64,3 +64,24 @@ def test_recompute_and_load(db):
 
 def test_load_dashboard_none_when_empty(db):
     assert stats_service.load_dashboard(db, "nobody") is None
+
+
+def test_calculate_all_respects_period_bounds(db):
+    from zoneinfo import ZoneInfo
+
+    db.execute(insert(Listen), [
+        {"username": "u", "played_at": _epoch("2021-05-01T10:00:00Z"), "ms_played": 100000,
+         "artist_name": "Old", "track_name": "o", "track_uri": "uo",
+         "reason_end": "trackdone", "skipped": False, "platform": "Windows"},
+        {"username": "u", "played_at": _epoch("2023-05-01T10:00:00Z"), "ms_played": 200000,
+         "artist_name": "New", "track_name": "n", "track_uri": "un",
+         "reason_end": "trackdone", "skipped": False, "platform": "Windows"},
+    ])
+    db.commit()
+
+    start = _epoch("2023-01-01T00:00:00Z")
+    end = _epoch("2024-01-01T00:00:00Z")
+    result = stats_service.calculate_all(db, "u", ZoneInfo("Europe/Kyiv"), start=start, end=end)
+
+    assert result["total_listening_time"]["total_listening_ms"] == 200000  # only the 2023 play
+    assert [a["artist"] for a in result["top_artists"]] == ["New"]

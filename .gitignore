@@ -7,6 +7,7 @@ test.py
 test.txt
 main.ipynb
 settings.json
+data/
 app/data/*
 .gitconfig
 

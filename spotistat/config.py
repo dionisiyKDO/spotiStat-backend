@@ -10,11 +10,10 @@ class Settings(BaseSettings):
         env_file=".env", env_prefix="SPOTISTAT_", extra="ignore"
     )
 
-    # Separate filename from the legacy Flask DB so the two never collide.
-    database_url: str = "sqlite:///./app/data/spotistat.db"
+    database_url: str = "sqlite:///./data/spotistat.db"
 
     # Where per-user archive folders live: <data_dir>/<username>/*.json
-    data_dir: str = "app/data"
+    data_dir: str = "data"
 
     # Local timezone used to bucket time-based stats (hour / weekday / date).
     # The raw instant is stored in UTC; this only affects how stats are grouped.
